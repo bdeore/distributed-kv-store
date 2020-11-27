@@ -33,6 +33,10 @@ void meta::__set_ip(const std::string& val) {
 void meta::__set_port(const int16_t val) {
   this->port = val;
 }
+
+void meta::__set_result(const std::string& val) {
+  this->result = val;
+}
 std::ostream& operator<<(std::ostream& out, const meta& obj)
 {
   obj.printTo(out);
@@ -93,6 +97,14 @@ uint32_t meta::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 5:
+        if (ftype == ::apache::thrift::protocol::T_STRING) {
+          xfer += iprot->readString(this->result);
+          this->__isset.result = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -126,6 +138,10 @@ uint32_t meta::write(::apache::thrift::protocol::TProtocol* oprot) const {
   xfer += oprot->writeI16(this->port);
   xfer += oprot->writeFieldEnd();
 
+  xfer += oprot->writeFieldBegin("result", ::apache::thrift::protocol::T_STRING, 5);
+  xfer += oprot->writeString(this->result);
+  xfer += oprot->writeFieldEnd();
+
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;
@@ -137,6 +153,7 @@ void swap(meta &a, meta &b) {
   swap(a.success, b.success);
   swap(a.ip, b.ip);
   swap(a.port, b.port);
+  swap(a.result, b.result);
   swap(a.__isset, b.__isset);
 }
 
@@ -145,6 +162,7 @@ meta::meta(const meta& other0) {
   success = other0.success;
   ip = other0.ip;
   port = other0.port;
+  result = other0.result;
   __isset = other0.__isset;
 }
 meta& meta::operator=(const meta& other1) {
@@ -152,6 +170,7 @@ meta& meta::operator=(const meta& other1) {
   success = other1.success;
   ip = other1.ip;
   port = other1.port;
+  result = other1.result;
   __isset = other1.__isset;
   return *this;
 }
@@ -162,6 +181,7 @@ void meta::printTo(std::ostream& out) const {
   out << ", " << "success=" << to_string(success);
   out << ", " << "ip=" << to_string(ip);
   out << ", " << "port=" << to_string(port);
+  out << ", " << "result=" << to_string(result);
   out << ")";
 }
 

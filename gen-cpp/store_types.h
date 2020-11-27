@@ -24,11 +24,12 @@
 class meta;
 
 typedef struct _meta__isset {
-  _meta__isset() : timestamp(false), success(false), ip(false), port(false) {}
+  _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false) {}
   bool timestamp :1;
   bool success :1;
   bool ip :1;
   bool port :1;
+  bool result :1;
 } _meta__isset;
 
 class meta : public virtual ::apache::thrift::TBase {
@@ -36,7 +37,7 @@ class meta : public virtual ::apache::thrift::TBase {
 
   meta(const meta&);
   meta& operator=(const meta&);
-  meta() : timestamp(0), success(0), ip(), port(0) {
+  meta() : timestamp(0), success(0), ip(), port(0), result() {
   }
 
   virtual ~meta() noexcept;
@@ -44,6 +45,7 @@ class meta : public virtual ::apache::thrift::TBase {
   bool success;
   std::string ip;
   int16_t port;
+  std::string result;
 
   _meta__isset __isset;
 
@@ -55,6 +57,8 @@ class meta : public virtual ::apache::thrift::TBase {
 
   void __set_port(const int16_t val);
 
+  void __set_result(const std::string& val);
+
   bool operator == (const meta & rhs) const
   {
     if (!(timestamp == rhs.timestamp))
@@ -64,6 +68,8 @@ class meta : public virtual ::apache::thrift::TBase {
     if (!(ip == rhs.ip))
       return false;
     if (!(port == rhs.port))
+      return false;
+    if (!(result == rhs.result))
       return false;
     return true;
   }

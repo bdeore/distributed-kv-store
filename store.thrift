@@ -3,6 +3,7 @@ struct meta {
     2: bool success
     3: string ip
     4: i16 port
+    5: string result
 }
 
 service dkvs {

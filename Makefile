@@ -9,7 +9,7 @@ INC := -I$(THRIFT_DIR) -Isrc/ -I$(THRIFT_DIR)/thrift
 
 .PHONY: all clean
 
-all:server
+all:server client
 
 %.o:gen-cpp/%.cpp
 	$(CXX)	-g	-std=c++17	-Wall	-DHAVE_INTTYPES_H	-DHAVE_NETINET_IN_H	$(INC)	-c	$<	-o	$@
@@ -22,11 +22,11 @@ client:
 	g++	-g client.o	dkvs.o	store_types.o	store_constants.o	-o	client	-std=c++17	-L/home/cs557-inst/local/lib/	-lthrift
 
 run:
-	source	~/.bashrc && ./server 9090
+	source	~/.bashrc && ./server 1_snitch.txt
 
 start: all run
 
 restart:clean all run
 
 clean:
-	$(RM)	*.o	server
+	$(RM)	*.o	server	client
