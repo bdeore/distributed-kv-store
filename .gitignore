@@ -1,1 +1,9 @@
 /.idea/
+/gen-cpp/dkvs_server.skeleton.cpp
+/dkvs.o
+/server
+/server.o
+/store_constants.o
+/store_types.o
+/client
+/client.o
