@@ -7,6 +7,6 @@ struct meta {
 }
 
 service dkvs {
-    string get (1: i16 key, 2: string consistency)
-    meta put (1: i16 key, 2: string value, 3: string consistency)
+    meta get (1: i16 key, 2: string consistency)
+    meta put (1: i16 key, 2: string value, 3: string consistency, 4: i32 timestamp)
 }

@@ -130,8 +130,8 @@ uint32_t dkvs_get_result::read(::apache::thrift::protocol::TProtocol* iprot) {
     switch (fid)
     {
       case 0:
-        if (ftype == ::apache::thrift::protocol::T_STRING) {
-          xfer += iprot->readString(this->success);
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += this->success.read(iprot);
           this->__isset.success = true;
         } else {
           xfer += iprot->skip(ftype);
@@ -156,8 +156,8 @@ uint32_t dkvs_get_result::write(::apache::thrift::protocol::TProtocol* oprot) co
   xfer += oprot->writeStructBegin("dkvs_get_result");
 
   if (this->__isset.success) {
-    xfer += oprot->writeFieldBegin("success", ::apache::thrift::protocol::T_STRING, 0);
-    xfer += oprot->writeString(this->success);
+    xfer += oprot->writeFieldBegin("success", ::apache::thrift::protocol::T_STRUCT, 0);
+    xfer += this->success.write(oprot);
     xfer += oprot->writeFieldEnd();
   }
   xfer += oprot->writeFieldStop();
@@ -192,8 +192,8 @@ uint32_t dkvs_get_presult::read(::apache::thrift::protocol::TProtocol* iprot) {
     switch (fid)
     {
       case 0:
-        if (ftype == ::apache::thrift::protocol::T_STRING) {
-          xfer += iprot->readString((*(this->success)));
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += (*(this->success)).read(iprot);
           this->__isset.success = true;
         } else {
           xfer += iprot->skip(ftype);
@@ -261,6 +261,14 @@ uint32_t dkvs_put_args::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 4:
+        if (ftype == ::apache::thrift::protocol::T_I32) {
+          xfer += iprot->readI32(this->timestamp);
+          this->__isset.timestamp = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -290,6 +298,10 @@ uint32_t dkvs_put_args::write(::apache::thrift::protocol::TProtocol* oprot) cons
   xfer += oprot->writeString(this->consistency);
   xfer += oprot->writeFieldEnd();
 
+  xfer += oprot->writeFieldBegin("timestamp", ::apache::thrift::protocol::T_I32, 4);
+  xfer += oprot->writeI32(this->timestamp);
+  xfer += oprot->writeFieldEnd();
+
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;
@@ -315,6 +327,10 @@ uint32_t dkvs_put_pargs::write(::apache::thrift::protocol::TProtocol* oprot) con
 
   xfer += oprot->writeFieldBegin("consistency", ::apache::thrift::protocol::T_STRING, 3);
   xfer += oprot->writeString((*(this->consistency)));
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("timestamp", ::apache::thrift::protocol::T_I32, 4);
+  xfer += oprot->writeI32((*(this->timestamp)));
   xfer += oprot->writeFieldEnd();
 
   xfer += oprot->writeFieldStop();
@@ -430,7 +446,7 @@ uint32_t dkvs_put_presult::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-void dkvsClient::get(std::string& _return, const int16_t key, const std::string& consistency)
+void dkvsClient::get(meta& _return, const int16_t key, const std::string& consistency)
 {
   send_get(key, consistency);
   recv_get(_return);
@@ -451,7 +467,7 @@ void dkvsClient::send_get(const int16_t key, const std::string& consistency)
   oprot_->getTransport()->flush();
 }
 
-void dkvsClient::recv_get(std::string& _return)
+void dkvsClient::recv_get(meta& _return)
 {
 
   int32_t rseqid = 0;
@@ -489,13 +505,13 @@ void dkvsClient::recv_get(std::string& _return)
   throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "get failed: unknown result");
 }
 
-void dkvsClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency)
+void dkvsClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
 {
-  send_put(key, value, consistency);
+  send_put(key, value, consistency, timestamp);
   recv_put(_return);
 }
 
-void dkvsClient::send_put(const int16_t key, const std::string& value, const std::string& consistency)
+void dkvsClient::send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
 {
   int32_t cseqid = 0;
   oprot_->writeMessageBegin("put", ::apache::thrift::protocol::T_CALL, cseqid);
@@ -504,6 +520,7 @@ void dkvsClient::send_put(const int16_t key, const std::string& value, const std
   args.key = &key;
   args.value = &value;
   args.consistency = &consistency;
+  args.timestamp = &timestamp;
   args.write(oprot_);
 
   oprot_->writeMessageEnd();
@@ -645,7 +662,7 @@ void dkvsProcessor::process_put(int32_t seqid, ::apache::thrift::protocol::TProt
 
   dkvs_put_result result;
   try {
-    iface_->put(result.success, args.key, args.value, args.consistency);
+    iface_->put(result.success, args.key, args.value, args.consistency, args.timestamp);
     result.__isset.success = true;
   } catch (const std::exception& e) {
     if (this->eventHandler_.get() != NULL) {
@@ -683,7 +700,7 @@ void dkvsProcessor::process_put(int32_t seqid, ::apache::thrift::protocol::TProt
   return processor;
 }
 
-void dkvsConcurrentClient::get(std::string& _return, const int16_t key, const std::string& consistency)
+void dkvsConcurrentClient::get(meta& _return, const int16_t key, const std::string& consistency)
 {
   int32_t seqid = send_get(key, consistency);
   recv_get(_return, seqid);
@@ -708,7 +725,7 @@ int32_t dkvsConcurrentClient::send_get(const int16_t key, const std::string& con
   return cseqid;
 }
 
-void dkvsConcurrentClient::recv_get(std::string& _return, const int32_t seqid)
+void dkvsConcurrentClient::recv_get(meta& _return, const int32_t seqid)
 {
 
   int32_t rseqid = 0;
@@ -768,13 +785,13 @@ void dkvsConcurrentClient::recv_get(std::string& _return, const int32_t seqid)
   } // end while(true)
 }
 
-void dkvsConcurrentClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency)
+void dkvsConcurrentClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
 {
-  int32_t seqid = send_put(key, value, consistency);
+  int32_t seqid = send_put(key, value, consistency, timestamp);
   recv_put(_return, seqid);
 }
 
-int32_t dkvsConcurrentClient::send_put(const int16_t key, const std::string& value, const std::string& consistency)
+int32_t dkvsConcurrentClient::send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
 {
   int32_t cseqid = this->sync_->generateSeqId();
   ::apache::thrift::async::TConcurrentSendSentry sentry(this->sync_.get());
@@ -784,6 +801,7 @@ int32_t dkvsConcurrentClient::send_put(const int16_t key, const std::string& val
   args.key = &key;
   args.value = &value;
   args.consistency = &consistency;
+  args.timestamp = &timestamp;
   args.write(oprot_);
 
   oprot_->writeMessageEnd();

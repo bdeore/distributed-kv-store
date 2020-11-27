@@ -10,11 +10,14 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <chrono>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
 using namespace apache::thrift::server;
+
+int get_time_in_seconds();
 
 class replica_node {
  public:
@@ -32,6 +35,7 @@ class dkvsHandler : virtual public dkvsIf {
   std::string line;
   int range_begin, range_end;
   std::vector<replica_node> nodes;
+  std::map<int16_t, std::string> mem_table;
 
  public:
   int port;
@@ -59,25 +63,49 @@ class dkvsHandler : virtual public dkvsIf {
         replica_node node(node_ip, node_port, node_range_begin, node_range_end);
         nodes.push_back(node);
       }
-
-      for (const auto &n : nodes) {
-        std::cout << n.ip << " " << n.port << " " << n.range_begin << " " << n.range_end << std::endl;
-      }
-      std::cout << ip << " " << port << " " << range_begin << " " << range_end << std::endl;
     }
   }
 
-  void get(std::string &_return, const int16_t key, const std::string &consistency) override {
-    std::cout << "hello from get" << std::endl;
-    _return = "hello from get";
+  void get(meta &_return, const int16_t key, const std::string &consistency) override {
+    std::string value, time_stamp;
+    std::stringstream ss;
 
+    auto it = mem_table.find(key);
+    if (it == mem_table.end()) {
+      _return.__set_result("");
+      _return.__set_success(false);
+    } else {
+      ss << it->second;
+      ss >> value >> time_stamp;
+
+      std::cout << "value: " << value << " timestamp: " << time_stamp << std::endl;
+      _return.__set_result(value);
+      _return.__set_success(true);
+      _return.__set_timestamp(std::stoi(time_stamp));
+    }
+    _return.__set_ip(ip);
+    _return.__set_port(port);
   }
 
-  void put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency) override {
-    _return.__set_result("put successful");
-    std::cout << "hello from put" << std::endl;
-  }
+  void put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
+           const int32_t timestamp) override {
 
+    int time_stamp = get_time_in_seconds();
+    std::string val_timestamp = value + " " + std::to_string(time_stamp);
+
+    auto it = mem_table.find(key);
+    if (it == mem_table.end()) {
+      mem_table.insert(std::pair<int16_t, std::string>(key, val_timestamp));
+      _return.__set_result("pair created");
+    } else {
+      it->second = val_timestamp;
+      _return.__set_result("pair updated");
+    }
+    _return.__set_timestamp(time_stamp);
+    _return.__set_success(true);
+    _return.__set_ip(ip);
+    _return.__set_port(port);
+  }
 };
 
 int main(int argc, char *argv[]) {
@@ -105,4 +133,10 @@ int main(int argc, char *argv[]) {
   server.serve();
   return 0;
 }
+
+int get_time_in_seconds() {
+  auto now = std::chrono::system_clock::now().time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::seconds>(now).count();
+}
+
 

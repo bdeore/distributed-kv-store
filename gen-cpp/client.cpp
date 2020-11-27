@@ -22,7 +22,8 @@ int generate_random_number();
 void generate_prompt(replica_node &coordinator);
 void create_node_vector(std::string &snitch_file, std::vector<replica_node> &nodes);
 void tokenize_line(std::string &line, std::vector<std::string> &tokens);
-void make_request(replica_node &coordinator, std::string &request);
+void make_request(replica_node &coordinator, std::vector<std::string> &tokens);
+bool verbose_output;
 
 class replica_node {
  public:
@@ -55,10 +56,10 @@ int main(int argc, char *argv[]) {
 }
 
 void generate_prompt(replica_node &coordinator) {
-  std::string line;
 
   while (true) {
     std::vector<std::string> tokens;
+    std::string line;
     std::cout << "client:> ";
 
     getline(std::cin, line);
@@ -70,25 +71,36 @@ void generate_prompt(replica_node &coordinator) {
       break;
     }
 
-    make_request(coordinator, command);
+    make_request(coordinator, tokens);
+
   }
 }
 
-void make_request(replica_node &coordinator, std::string &request) {
+void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
   auto trans_ep = make_shared<TSocket>(coordinator.ip, coordinator.port);
   auto trans_buf = make_shared<TBufferedTransport>(trans_ep);
   auto proto = make_shared<TBinaryProtocol>(trans_buf);
   dkvsClient client(proto);
 
   trans_ep->open();
-  std::string msg;
+  std::string request, value, consistency;
+  int key;
 
+  request = tokens[0];
+  key = std::stoi(tokens[1]);
+
+  if (tokens[tokens.size() - 1] == "-v") {
+    verbose_output = true;
+  }
+
+  meta meta;
   if (request == "get") {
-    client.get(msg, 25, "A");
-    std::cout << msg << std::endl;
+    client.get(meta, key, "A");
+    std::cout << meta.result << std::endl;
   } else if (request == "put") {
-    meta meta;
-    client.put(meta, 25, "test", "A");
+    value = tokens[2];
+    consistency = tokens[3];
+    client.put(meta, key, value, "A", 10);
     std::cout << meta.result << std::endl;
   }
   trans_ep->close();

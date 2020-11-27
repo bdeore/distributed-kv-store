@@ -22,8 +22,8 @@
 class dkvsIf {
  public:
   virtual ~dkvsIf() {}
-  virtual void get(std::string& _return, const int16_t key, const std::string& consistency) = 0;
-  virtual void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency) = 0;
+  virtual void get(meta& _return, const int16_t key, const std::string& consistency) = 0;
+  virtual void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp) = 0;
 };
 
 class dkvsIfFactory {
@@ -53,10 +53,10 @@ class dkvsIfSingletonFactory : virtual public dkvsIfFactory {
 class dkvsNull : virtual public dkvsIf {
  public:
   virtual ~dkvsNull() {}
-  void get(std::string& /* _return */, const int16_t /* key */, const std::string& /* consistency */) {
+  void get(meta& /* _return */, const int16_t /* key */, const std::string& /* consistency */) {
     return;
   }
-  void put(meta& /* _return */, const int16_t /* key */, const std::string& /* value */, const std::string& /* consistency */) {
+  void put(meta& /* _return */, const int16_t /* key */, const std::string& /* value */, const std::string& /* consistency */, const int32_t /* timestamp */) {
     return;
   }
 };
@@ -127,15 +127,15 @@ class dkvs_get_result {
 
   dkvs_get_result(const dkvs_get_result&);
   dkvs_get_result& operator=(const dkvs_get_result&);
-  dkvs_get_result() : success() {
+  dkvs_get_result() {
   }
 
   virtual ~dkvs_get_result() noexcept;
-  std::string success;
+  meta success;
 
   _dkvs_get_result__isset __isset;
 
-  void __set_success(const std::string& val);
+  void __set_success(const meta& val);
 
   bool operator == (const dkvs_get_result & rhs) const
   {
@@ -164,7 +164,7 @@ class dkvs_get_presult {
 
 
   virtual ~dkvs_get_presult() noexcept;
-  std::string* success;
+  meta* success;
 
   _dkvs_get_presult__isset __isset;
 
@@ -173,10 +173,11 @@ class dkvs_get_presult {
 };
 
 typedef struct _dkvs_put_args__isset {
-  _dkvs_put_args__isset() : key(false), value(false), consistency(false) {}
+  _dkvs_put_args__isset() : key(false), value(false), consistency(false), timestamp(false) {}
   bool key :1;
   bool value :1;
   bool consistency :1;
+  bool timestamp :1;
 } _dkvs_put_args__isset;
 
 class dkvs_put_args {
@@ -184,13 +185,14 @@ class dkvs_put_args {
 
   dkvs_put_args(const dkvs_put_args&);
   dkvs_put_args& operator=(const dkvs_put_args&);
-  dkvs_put_args() : key(0), value(), consistency() {
+  dkvs_put_args() : key(0), value(), consistency(), timestamp(0) {
   }
 
   virtual ~dkvs_put_args() noexcept;
   int16_t key;
   std::string value;
   std::string consistency;
+  int32_t timestamp;
 
   _dkvs_put_args__isset __isset;
 
@@ -200,6 +202,8 @@ class dkvs_put_args {
 
   void __set_consistency(const std::string& val);
 
+  void __set_timestamp(const int32_t val);
+
   bool operator == (const dkvs_put_args & rhs) const
   {
     if (!(key == rhs.key))
@@ -207,6 +211,8 @@ class dkvs_put_args {
     if (!(value == rhs.value))
       return false;
     if (!(consistency == rhs.consistency))
+      return false;
+    if (!(timestamp == rhs.timestamp))
       return false;
     return true;
   }
@@ -230,6 +236,7 @@ class dkvs_put_pargs {
   const int16_t* key;
   const std::string* value;
   const std::string* consistency;
+  const int32_t* timestamp;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
@@ -315,11 +322,11 @@ class dkvsClient : virtual public dkvsIf {
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> getOutputProtocol() {
     return poprot_;
   }
-  void get(std::string& _return, const int16_t key, const std::string& consistency);
+  void get(meta& _return, const int16_t key, const std::string& consistency);
   void send_get(const int16_t key, const std::string& consistency);
-  void recv_get(std::string& _return);
-  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency);
-  void send_put(const int16_t key, const std::string& value, const std::string& consistency);
+  void recv_get(meta& _return);
+  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
+  void send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
   void recv_put(meta& _return);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
@@ -371,7 +378,7 @@ class dkvsMultiface : virtual public dkvsIf {
     ifaces_.push_back(iface);
   }
  public:
-  void get(std::string& _return, const int16_t key, const std::string& consistency) {
+  void get(meta& _return, const int16_t key, const std::string& consistency) {
     size_t sz = ifaces_.size();
     size_t i = 0;
     for (; i < (sz - 1); ++i) {
@@ -381,13 +388,13 @@ class dkvsMultiface : virtual public dkvsIf {
     return;
   }
 
-  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency) {
+  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp) {
     size_t sz = ifaces_.size();
     size_t i = 0;
     for (; i < (sz - 1); ++i) {
-      ifaces_[i]->put(_return, key, value, consistency);
+      ifaces_[i]->put(_return, key, value, consistency, timestamp);
     }
-    ifaces_[i]->put(_return, key, value, consistency);
+    ifaces_[i]->put(_return, key, value, consistency, timestamp);
     return;
   }
 
@@ -423,11 +430,11 @@ class dkvsConcurrentClient : virtual public dkvsIf {
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> getOutputProtocol() {
     return poprot_;
   }
-  void get(std::string& _return, const int16_t key, const std::string& consistency);
+  void get(meta& _return, const int16_t key, const std::string& consistency);
   int32_t send_get(const int16_t key, const std::string& consistency);
-  void recv_get(std::string& _return, const int32_t seqid);
-  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency);
-  int32_t send_put(const int16_t key, const std::string& value, const std::string& consistency);
+  void recv_get(meta& _return, const int32_t seqid);
+  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
+  int32_t send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
   void recv_put(meta& _return, const int32_t seqid);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
