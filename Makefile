@@ -10,6 +10,7 @@ INC := -I$(THRIFT_DIR) -Isrc/ -I$(THRIFT_DIR)/thrift
 .PHONY: all clean
 
 all:server client
+	mkdir	logs
 
 %.o:gen-cpp/%.cpp
 	$(CXX)	-g	-std=c++17	-Wall	-DHAVE_INTTYPES_H	-DHAVE_NETINET_IN_H	$(INC)	-c	$<	-o	$@
@@ -30,3 +31,4 @@ restart:clean all run
 
 clean:
 	$(RM)	*.o	server	client
+	rm	-rf	logs	128.*

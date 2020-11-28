@@ -1,5 +1,49 @@
 #include "server.hpp"
 
+dkvsHandler::dkvsHandler(std::string &snitch_file) {
+  std::string timestamp, key;
+  std::string node_ip, value;
+  int node_port, node_range_begin, node_range_end;
+
+  snitch.open(snitch_file);
+  if (snitch.is_open()) {
+    getline(snitch, line);
+    node_info.str(line);
+    node_info >> node_ip >> node_port >> node_range_begin >> node_range_end;
+
+    this->ip = node_ip;
+    this->port = node_port;
+    this->range_begin = node_range_begin;
+    this->range_end = node_range_end;
+
+    snitch.close();
+    snitch.open("1_snitch.txt");
+
+    while (getline(snitch, line)) {
+      std::stringstream temp;
+      temp.str(line);
+      temp >> node_ip >> node_port >> node_range_begin >> node_range_end;
+      replica_node node(node_ip, node_port, node_range_begin, node_range_end);
+      nodes.push_back(node);
+    }
+    snitch.close();
+  }
+
+  std::string f = "logs/" + ip;
+  log.open(f);
+  log_replay = true;
+  while (getline(log, line)) {
+    std::stringstream temp;
+    temp.str(line);
+    temp >> key >> value >> timestamp;
+    std::cout << "value: " << value << " timestamp: " << timestamp << std::endl;
+    meta meta;
+    local_put(meta, std::stoi(key), value, std::stoi(timestamp));
+  }
+  log.close();
+  log_replay = false;
+}
+
 void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consistency) {
   local_get(_return, key);
 }
@@ -7,8 +51,7 @@ void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consi
 void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
                       const int32_t timestamp, const bool is_coordinator) {
   if (is_coordinator) {
-    int count = 0;
-    int time_stamp = get_time_in_seconds();
+    int failed = 0, time_stamp = get_time_in_seconds();
     std::string val_timestamp = value + " " + std::to_string(time_stamp);
     std::vector<int> forwarding_nodes;
 
@@ -20,13 +63,18 @@ void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value
       } catch (...) {
         handoff_hint request(nodes.at(index), key, val_timestamp, time_stamp);
         pending_handoff.push_back(request);
-        count++;
+        failed++;
       }
     }
-    if (count >= 2) std::cout << "put failed" << std::endl;
+    if (failed >= 2) std::cout << "put failed" << std::endl;
   } else {
     local_put(_return, key, value, timestamp);
   }
+}
+
+void dkvsHandler::request_handoff(const node &n) {
+  // Your implementation goes here
+  printf("request_handoff\n");
 }
 
 void dkvsHandler::local_get(meta &_return, int16_t key) {
@@ -53,16 +101,29 @@ void dkvsHandler::local_get(meta &_return, int16_t key) {
 void dkvsHandler::local_put(meta &_return, int16_t key, const std::string &value, int32_t timestamp) {
   auto it = mem_table.find(key);
   if (it == mem_table.end()) {
-    mem_table.insert(std::pair<int16_t, std::string>(key, value));
+    std::string val_timestamp = value + " " + std::to_string(timestamp);
+    mem_table.insert(std::pair<int16_t, std::string>(key, val_timestamp));
     _return.__set_result("pair created");
   } else {
-    it->second = value;
+    std::string val_timestamp = value + " " + std::to_string(timestamp);
+    it->second = val_timestamp;
     _return.__set_result("pair updated");
   }
   _return.__set_timestamp(timestamp);
   _return.__set_success(true);
   _return.__set_ip(ip);
   _return.__set_port(port);
+
+  std::string log_entry = std::to_string(key) + " " + value + "\n";
+
+  if (!log_replay) {
+    std::string f = "logs/" + ip;
+
+    log.open(f, std::ios::app);
+    log << log_entry;
+    log.close();
+  }
+
   std::cout << "value inserted: " << value << std::endl;
 }
 
@@ -72,7 +133,7 @@ void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const
     local_put(meta, key, value, timestamp);
   } else {
     auto trans_ep = make_shared<TSocket>(node.ip, node.port);
-    trans_ep->setRecvTimeout(10000);
+    trans_ep->setRecvTimeout(15000);
     auto trans_buf = make_shared<TBufferedTransport>(trans_ep);
     auto proto = make_shared<TBinaryProtocol>(trans_buf);
     dkvsClient proxy(proto);
@@ -136,32 +197,3 @@ int main(int argc, char *argv[]) {
 
 handoff_hint::handoff_hint(replica_node node, int16_t key, std::string value, int32_t timestamp)
     : node(std::move(node)), key(key), value(std::move(value)), timestamp(timestamp) {}
-
-dkvsHandler::dkvsHandler(std::string &snitch_file) {
-  int node_port, node_range_begin, node_range_end;
-  std::string node_ip;
-
-  snitch.open(snitch_file);
-  if (snitch.is_open()) {
-    getline(snitch, line);
-    node_info.str(line);
-    node_info >> node_ip >> node_port >> node_range_begin >> node_range_end;
-
-    this->ip = node_ip;
-    this->port = node_port;
-    this->range_begin = node_range_begin;
-    this->range_end = node_range_end;
-
-    snitch.close();
-    snitch.open("1_snitch.txt");
-
-    while (getline(snitch, line)) {
-      std::stringstream temp;
-      temp.str(line);
-      temp >> node_ip >> node_port >> node_range_begin >> node_range_end;
-      replica_node node(node_ip, node_port, node_range_begin, node_range_end);
-      nodes.push_back(node);
-    }
-    snitch.close();
-  }
-}

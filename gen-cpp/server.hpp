@@ -8,14 +8,15 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TSocket.h>
 
-#include <map>
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
 #include <utility>
-#include <vector>
 #include <chrono>
+#include <vector>
 #include <list>
+#include <map>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
@@ -44,13 +45,15 @@ class handoff_hint {
 
 class dkvsHandler : virtual public dkvsIf {
  private:
-  std::fstream snitch;
+  std::fstream snitch, log;
   std::stringstream node_info;
   std::string line;
   int range_begin, range_end;
   std::vector<replica_node> nodes;
   std::list<handoff_hint> pending_handoff{};
   std::map<int16_t, std::string> mem_table;
+  bool log_replay;
+
   static int get_time_in_seconds();
   void local_get(meta &_return, int16_t key);
   void local_put(meta &_return, int16_t key, const std::string &value, int32_t timestamp);
@@ -60,6 +63,7 @@ class dkvsHandler : virtual public dkvsIf {
   void get(meta &_return, const int16_t key, const std::string &consistency) override;
   void put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
            const int32_t timestamp, const bool is_coordinator) override;
+  void request_handoff(const node &n) override;
 
  public:
   int port;

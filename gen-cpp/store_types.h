@@ -23,6 +23,8 @@
 
 class meta;
 
+class node;
+
 typedef struct _meta__isset {
   _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false) {}
   bool timestamp :1;
@@ -88,6 +90,54 @@ class meta : public virtual ::apache::thrift::TBase {
 void swap(meta &a, meta &b);
 
 std::ostream& operator<<(std::ostream& out, const meta& obj);
+
+typedef struct _node__isset {
+  _node__isset() : ip(false), port(false) {}
+  bool ip :1;
+  bool port :1;
+} _node__isset;
+
+class node : public virtual ::apache::thrift::TBase {
+ public:
+
+  node(const node&);
+  node& operator=(const node&);
+  node() : ip(), port(0) {
+  }
+
+  virtual ~node() noexcept;
+  std::string ip;
+  int16_t port;
+
+  _node__isset __isset;
+
+  void __set_ip(const std::string& val);
+
+  void __set_port(const int16_t val);
+
+  bool operator == (const node & rhs) const
+  {
+    if (!(ip == rhs.ip))
+      return false;
+    if (!(port == rhs.port))
+      return false;
+    return true;
+  }
+  bool operator != (const node &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const node & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(node &a, node &b);
+
+std::ostream& operator<<(std::ostream& out, const node& obj);
 
 
 

@@ -186,3 +186,115 @@ void meta::printTo(std::ostream& out) const {
 }
 
 
+node::~node() noexcept {
+}
+
+
+void node::__set_ip(const std::string& val) {
+  this->ip = val;
+}
+
+void node::__set_port(const int16_t val) {
+  this->port = val;
+}
+std::ostream& operator<<(std::ostream& out, const node& obj)
+{
+  obj.printTo(out);
+  return out;
+}
+
+
+uint32_t node::read(::apache::thrift::protocol::TProtocol* iprot) {
+
+  ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
+  uint32_t xfer = 0;
+  std::string fname;
+  ::apache::thrift::protocol::TType ftype;
+  int16_t fid;
+
+  xfer += iprot->readStructBegin(fname);
+
+  using ::apache::thrift::protocol::TProtocolException;
+
+
+  while (true)
+  {
+    xfer += iprot->readFieldBegin(fname, ftype, fid);
+    if (ftype == ::apache::thrift::protocol::T_STOP) {
+      break;
+    }
+    switch (fid)
+    {
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_STRING) {
+          xfer += iprot->readString(this->ip);
+          this->__isset.ip = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 2:
+        if (ftype == ::apache::thrift::protocol::T_I16) {
+          xfer += iprot->readI16(this->port);
+          this->__isset.port = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      default:
+        xfer += iprot->skip(ftype);
+        break;
+    }
+    xfer += iprot->readFieldEnd();
+  }
+
+  xfer += iprot->readStructEnd();
+
+  return xfer;
+}
+
+uint32_t node::write(::apache::thrift::protocol::TProtocol* oprot) const {
+  uint32_t xfer = 0;
+  ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
+  xfer += oprot->writeStructBegin("node");
+
+  xfer += oprot->writeFieldBegin("ip", ::apache::thrift::protocol::T_STRING, 1);
+  xfer += oprot->writeString(this->ip);
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("port", ::apache::thrift::protocol::T_I16, 2);
+  xfer += oprot->writeI16(this->port);
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldStop();
+  xfer += oprot->writeStructEnd();
+  return xfer;
+}
+
+void swap(node &a, node &b) {
+  using ::std::swap;
+  swap(a.ip, b.ip);
+  swap(a.port, b.port);
+  swap(a.__isset, b.__isset);
+}
+
+node::node(const node& other2) {
+  ip = other2.ip;
+  port = other2.port;
+  __isset = other2.__isset;
+}
+node& node::operator=(const node& other3) {
+  ip = other3.ip;
+  port = other3.port;
+  __isset = other3.__isset;
+  return *this;
+}
+void node::printTo(std::ostream& out) const {
+  using ::apache::thrift::to_string;
+  out << "node(";
+  out << "ip=" << to_string(ip);
+  out << ", " << "port=" << to_string(port);
+  out << ")";
+}
+
+
