@@ -1,112 +1,112 @@
-#include "dkvs.h"
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TSimpleServer.h>
-#include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TBufferTransports.h>
+#include "server.hpp"
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <map>
-#include <utility>
-#include <vector>
-#include <chrono>
+void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consistency) {
+  local_get(_return, key);
+}
 
-using namespace apache::thrift;
-using namespace apache::thrift::protocol;
-using namespace apache::thrift::transport;
-using namespace apache::thrift::server;
+void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
+                      const int32_t timestamp, const bool is_coordinator) {
+  if (is_coordinator) {
+    int count = 0;
+    int time_stamp = get_time_in_seconds();
+    std::string val_timestamp = value + " " + std::to_string(time_stamp);
+    std::vector<int> forwarding_nodes;
 
-int get_time_in_seconds();
+    meta meta;
+    find_forwarding_nodes(key, forwarding_nodes);
+    for (const auto &index:forwarding_nodes) {
+      try {
+        make_request(meta, nodes.at(index), key, val_timestamp, time_stamp);
+      } catch (...) {
+        handoff_hint request(nodes.at(index), key, val_timestamp, time_stamp);
+        pending_handoff.push_back(request);
+        count++;
+      }
+    }
+    if (count >= 2) std::cout << "put failed" << std::endl;
+  } else {
+    local_put(_return, key, value, timestamp);
+  }
+}
 
-class replica_node {
- public:
-  std::string ip;
-  int port, range_begin, range_end;
+void dkvsHandler::local_get(meta &_return, int16_t key) {
+  std::string value, time_stamp;
+  std::stringstream ss;
 
-  replica_node(std::string ip, int port, int range_begin, int range_end)
-      : ip(std::move(ip)), port(port), range_begin(range_begin), range_end(range_end) {}
-};
+  auto it = mem_table.find(key);
+  if (it == mem_table.end()) {
+    _return.__set_result("");
+    _return.__set_success(false);
+  } else {
+    ss << it->second;
+    ss >> value >> time_stamp;
 
-class dkvsHandler : virtual public dkvsIf {
- private:
-  std::fstream snitch;
-  std::stringstream node_info;
-  std::string line;
-  int range_begin, range_end;
-  std::vector<replica_node> nodes;
-  std::map<int16_t, std::string> mem_table;
+    std::cout << "value: " << value << " timestamp: " << time_stamp << std::endl;
+    _return.__set_result(value);
+    _return.__set_success(true);
+    _return.__set_timestamp(std::stoi(time_stamp));
+  }
+  _return.__set_ip(ip);
+  _return.__set_port(port);
+}
 
- public:
-  int port;
-  std::string ip;
+void dkvsHandler::local_put(meta &_return, int16_t key, const std::string &value, int32_t timestamp) {
+  auto it = mem_table.find(key);
+  if (it == mem_table.end()) {
+    mem_table.insert(std::pair<int16_t, std::string>(key, value));
+    _return.__set_result("pair created");
+  } else {
+    it->second = value;
+    _return.__set_result("pair updated");
+  }
+  _return.__set_timestamp(timestamp);
+  _return.__set_success(true);
+  _return.__set_ip(ip);
+  _return.__set_port(port);
+  std::cout << "value inserted: " << value << std::endl;
+}
 
-  explicit dkvsHandler(std::string &snitch_file) {
-    int node_port, node_range_begin, node_range_end;
-    std::string node_ip;
+void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const std::string &value,
+                               int32_t timestamp) {
+  if (node.ip == ip && node.port == port) {
+    local_put(meta, key, value, timestamp);
+  } else {
+    auto trans_ep = make_shared<TSocket>(node.ip, node.port);
+    trans_ep->setRecvTimeout(10000);
+    auto trans_buf = make_shared<TBufferedTransport>(trans_ep);
+    auto proto = make_shared<TBinaryProtocol>(trans_buf);
+    dkvsClient proxy(proto);
+    trans_ep->open();
+    proxy.put(meta, key, value, "a", timestamp, false);
+    trans_ep->close();
+  }
+}
 
-    snitch.open(snitch_file);
-    if (snitch.is_open()) {
-      getline(snitch, line);
-      node_info.str(line);
-      node_info >> node_ip >> node_port >> node_range_begin >> node_range_end;
-
-      this->ip = node_ip;
-      this->port = node_port;
-      this->range_begin = node_range_begin;
-      this->range_end = node_range_end;
-
-      while (getline(snitch, line)) {
-        std::stringstream temp;
-        temp.str(line);
-        temp >> node_ip >> node_port >> node_range_begin >> node_range_end;
-        replica_node node(node_ip, node_port, node_range_begin, node_range_end);
-        nodes.push_back(node);
+void dkvsHandler::find_forwarding_nodes(int16_t key, std::vector<int> &forwarding_nodes) {
+  if (!nodes.empty()) {
+    int primary = find_primary_replica(key);
+    if (primary != -1) {
+      for (int i = 0; i < 3; i++) {
+        forwarding_nodes.push_back(primary);
+        primary = (primary + 1) % 4;
       }
     }
   }
+}
 
-  void get(meta &_return, const int16_t key, const std::string &consistency) override {
-    std::string value, time_stamp;
-    std::stringstream ss;
-
-    auto it = mem_table.find(key);
-    if (it == mem_table.end()) {
-      _return.__set_result("");
-      _return.__set_success(false);
-    } else {
-      ss << it->second;
-      ss >> value >> time_stamp;
-
-      std::cout << "value: " << value << " timestamp: " << time_stamp << std::endl;
-      _return.__set_result(value);
-      _return.__set_success(true);
-      _return.__set_timestamp(std::stoi(time_stamp));
+int dkvsHandler::find_primary_replica(int16_t key) {
+  for (int i = 0; i < (int) nodes.size(); i++) {
+    if ((nodes.at(i).range_begin <= key) && (nodes.at(i).range_end >= key)) {
+      return i;
     }
-    _return.__set_ip(ip);
-    _return.__set_port(port);
   }
+  return -1;
+}
 
-  void put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
-           const int32_t timestamp) override {
-
-    int time_stamp = get_time_in_seconds();
-    std::string val_timestamp = value + " " + std::to_string(time_stamp);
-
-    auto it = mem_table.find(key);
-    if (it == mem_table.end()) {
-      mem_table.insert(std::pair<int16_t, std::string>(key, val_timestamp));
-      _return.__set_result("pair created");
-    } else {
-      it->second = val_timestamp;
-      _return.__set_result("pair updated");
-    }
-    _return.__set_timestamp(time_stamp);
-    _return.__set_success(true);
-    _return.__set_ip(ip);
-    _return.__set_port(port);
-  }
-};
+int dkvsHandler::get_time_in_seconds() {
+  auto now = std::chrono::system_clock::now().time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::seconds>(now).count();
+}
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
@@ -134,9 +134,34 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-int get_time_in_seconds() {
-  auto now = std::chrono::system_clock::now().time_since_epoch();
-  return std::chrono::duration_cast<std::chrono::seconds>(now).count();
+handoff_hint::handoff_hint(replica_node node, int16_t key, std::string value, int32_t timestamp)
+    : node(std::move(node)), key(key), value(std::move(value)), timestamp(timestamp) {}
+
+dkvsHandler::dkvsHandler(std::string &snitch_file) {
+  int node_port, node_range_begin, node_range_end;
+  std::string node_ip;
+
+  snitch.open(snitch_file);
+  if (snitch.is_open()) {
+    getline(snitch, line);
+    node_info.str(line);
+    node_info >> node_ip >> node_port >> node_range_begin >> node_range_end;
+
+    this->ip = node_ip;
+    this->port = node_port;
+    this->range_begin = node_range_begin;
+    this->range_end = node_range_end;
+
+    snitch.close();
+    snitch.open("1_snitch.txt");
+
+    while (getline(snitch, line)) {
+      std::stringstream temp;
+      temp.str(line);
+      temp >> node_ip >> node_port >> node_range_begin >> node_range_end;
+      replica_node node(node_ip, node_port, node_range_begin, node_range_end);
+      nodes.push_back(node);
+    }
+    snitch.close();
+  }
 }
-
-

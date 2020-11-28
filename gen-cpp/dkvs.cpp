@@ -269,6 +269,14 @@ uint32_t dkvs_put_args::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 5:
+        if (ftype == ::apache::thrift::protocol::T_BOOL) {
+          xfer += iprot->readBool(this->is_coordinator);
+          this->__isset.is_coordinator = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -302,6 +310,10 @@ uint32_t dkvs_put_args::write(::apache::thrift::protocol::TProtocol* oprot) cons
   xfer += oprot->writeI32(this->timestamp);
   xfer += oprot->writeFieldEnd();
 
+  xfer += oprot->writeFieldBegin("is_coordinator", ::apache::thrift::protocol::T_BOOL, 5);
+  xfer += oprot->writeBool(this->is_coordinator);
+  xfer += oprot->writeFieldEnd();
+
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;
@@ -331,6 +343,10 @@ uint32_t dkvs_put_pargs::write(::apache::thrift::protocol::TProtocol* oprot) con
 
   xfer += oprot->writeFieldBegin("timestamp", ::apache::thrift::protocol::T_I32, 4);
   xfer += oprot->writeI32((*(this->timestamp)));
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("is_coordinator", ::apache::thrift::protocol::T_BOOL, 5);
+  xfer += oprot->writeBool((*(this->is_coordinator)));
   xfer += oprot->writeFieldEnd();
 
   xfer += oprot->writeFieldStop();
@@ -505,13 +521,13 @@ void dkvsClient::recv_get(meta& _return)
   throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "get failed: unknown result");
 }
 
-void dkvsClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
+void dkvsClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator)
 {
-  send_put(key, value, consistency, timestamp);
+  send_put(key, value, consistency, timestamp, is_coordinator);
   recv_put(_return);
 }
 
-void dkvsClient::send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
+void dkvsClient::send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator)
 {
   int32_t cseqid = 0;
   oprot_->writeMessageBegin("put", ::apache::thrift::protocol::T_CALL, cseqid);
@@ -521,6 +537,7 @@ void dkvsClient::send_put(const int16_t key, const std::string& value, const std
   args.value = &value;
   args.consistency = &consistency;
   args.timestamp = &timestamp;
+  args.is_coordinator = &is_coordinator;
   args.write(oprot_);
 
   oprot_->writeMessageEnd();
@@ -662,7 +679,7 @@ void dkvsProcessor::process_put(int32_t seqid, ::apache::thrift::protocol::TProt
 
   dkvs_put_result result;
   try {
-    iface_->put(result.success, args.key, args.value, args.consistency, args.timestamp);
+    iface_->put(result.success, args.key, args.value, args.consistency, args.timestamp, args.is_coordinator);
     result.__isset.success = true;
   } catch (const std::exception& e) {
     if (this->eventHandler_.get() != NULL) {
@@ -785,13 +802,13 @@ void dkvsConcurrentClient::recv_get(meta& _return, const int32_t seqid)
   } // end while(true)
 }
 
-void dkvsConcurrentClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
+void dkvsConcurrentClient::put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator)
 {
-  int32_t seqid = send_put(key, value, consistency, timestamp);
+  int32_t seqid = send_put(key, value, consistency, timestamp, is_coordinator);
   recv_put(_return, seqid);
 }
 
-int32_t dkvsConcurrentClient::send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp)
+int32_t dkvsConcurrentClient::send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator)
 {
   int32_t cseqid = this->sync_->generateSeqId();
   ::apache::thrift::async::TConcurrentSendSentry sentry(this->sync_.get());
@@ -802,6 +819,7 @@ int32_t dkvsConcurrentClient::send_put(const int16_t key, const std::string& val
   args.value = &value;
   args.consistency = &consistency;
   args.timestamp = &timestamp;
+  args.is_coordinator = &is_coordinator;
   args.write(oprot_);
 
   oprot_->writeMessageEnd();

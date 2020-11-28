@@ -23,7 +23,7 @@ class dkvsIf {
  public:
   virtual ~dkvsIf() {}
   virtual void get(meta& _return, const int16_t key, const std::string& consistency) = 0;
-  virtual void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp) = 0;
+  virtual void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator) = 0;
 };
 
 class dkvsIfFactory {
@@ -56,7 +56,7 @@ class dkvsNull : virtual public dkvsIf {
   void get(meta& /* _return */, const int16_t /* key */, const std::string& /* consistency */) {
     return;
   }
-  void put(meta& /* _return */, const int16_t /* key */, const std::string& /* value */, const std::string& /* consistency */, const int32_t /* timestamp */) {
+  void put(meta& /* _return */, const int16_t /* key */, const std::string& /* value */, const std::string& /* consistency */, const int32_t /* timestamp */, const bool /* is_coordinator */) {
     return;
   }
 };
@@ -173,11 +173,12 @@ class dkvs_get_presult {
 };
 
 typedef struct _dkvs_put_args__isset {
-  _dkvs_put_args__isset() : key(false), value(false), consistency(false), timestamp(false) {}
+  _dkvs_put_args__isset() : key(false), value(false), consistency(false), timestamp(false), is_coordinator(false) {}
   bool key :1;
   bool value :1;
   bool consistency :1;
   bool timestamp :1;
+  bool is_coordinator :1;
 } _dkvs_put_args__isset;
 
 class dkvs_put_args {
@@ -185,7 +186,7 @@ class dkvs_put_args {
 
   dkvs_put_args(const dkvs_put_args&);
   dkvs_put_args& operator=(const dkvs_put_args&);
-  dkvs_put_args() : key(0), value(), consistency(), timestamp(0) {
+  dkvs_put_args() : key(0), value(), consistency(), timestamp(0), is_coordinator(0) {
   }
 
   virtual ~dkvs_put_args() noexcept;
@@ -193,6 +194,7 @@ class dkvs_put_args {
   std::string value;
   std::string consistency;
   int32_t timestamp;
+  bool is_coordinator;
 
   _dkvs_put_args__isset __isset;
 
@@ -204,6 +206,8 @@ class dkvs_put_args {
 
   void __set_timestamp(const int32_t val);
 
+  void __set_is_coordinator(const bool val);
+
   bool operator == (const dkvs_put_args & rhs) const
   {
     if (!(key == rhs.key))
@@ -213,6 +217,8 @@ class dkvs_put_args {
     if (!(consistency == rhs.consistency))
       return false;
     if (!(timestamp == rhs.timestamp))
+      return false;
+    if (!(is_coordinator == rhs.is_coordinator))
       return false;
     return true;
   }
@@ -237,6 +243,7 @@ class dkvs_put_pargs {
   const std::string* value;
   const std::string* consistency;
   const int32_t* timestamp;
+  const bool* is_coordinator;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
@@ -325,8 +332,8 @@ class dkvsClient : virtual public dkvsIf {
   void get(meta& _return, const int16_t key, const std::string& consistency);
   void send_get(const int16_t key, const std::string& consistency);
   void recv_get(meta& _return);
-  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
-  void send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
+  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
+  void send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
   void recv_put(meta& _return);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
@@ -388,13 +395,13 @@ class dkvsMultiface : virtual public dkvsIf {
     return;
   }
 
-  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp) {
+  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator) {
     size_t sz = ifaces_.size();
     size_t i = 0;
     for (; i < (sz - 1); ++i) {
-      ifaces_[i]->put(_return, key, value, consistency, timestamp);
+      ifaces_[i]->put(_return, key, value, consistency, timestamp, is_coordinator);
     }
-    ifaces_[i]->put(_return, key, value, consistency, timestamp);
+    ifaces_[i]->put(_return, key, value, consistency, timestamp, is_coordinator);
     return;
   }
 
@@ -433,8 +440,8 @@ class dkvsConcurrentClient : virtual public dkvsIf {
   void get(meta& _return, const int16_t key, const std::string& consistency);
   int32_t send_get(const int16_t key, const std::string& consistency);
   void recv_get(meta& _return, const int32_t seqid);
-  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
-  int32_t send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp);
+  void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
+  int32_t send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
   void recv_put(meta& _return, const int32_t seqid);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
