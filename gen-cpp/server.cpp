@@ -49,6 +49,7 @@ void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consi
   if (send_handoff_requests) {
     send_handoff_requests = false;
     process_hints();
+    commit_hints();
   }
   local_get(_return, key);
 }
@@ -58,6 +59,7 @@ void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value
   if (send_handoff_requests) {
     send_handoff_requests = false;
     process_hints();
+    commit_hints();
   }
 
   if (is_coordinator) {
@@ -73,7 +75,7 @@ void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value
       } catch (...) {
         handoff_hint request(nodes.at(index), key, val_timestamp, time_stamp);
         pending_handoff.push_back(request);
-        std::cout << "  Stored Hint for Node: [" << nodes.at(index).ip << ":" << nodes.at(index).port << " ]"
+        std::cout << "  -> Stored Hint for Node: [" << nodes.at(index).ip << ":" << nodes.at(index).port << " ]"
                   << std::endl;
         failed++;
       }
@@ -153,9 +155,42 @@ void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const
       current.port = port;
       current.ip = ip;
       proxy.request_handoff(current);
+    } else if (request == "send_hint") {
+      hint h;
+      h.key = key;
+      h.value = value;
+      h.timestamp = timestamp;
+      proxy.receive_hint(h);
     }
     trans_ep->close();
   }
+}
+
+void dkvsHandler::receive_hint(const hint &h) {
+  hints.push_back(h);
+  std::cout << "  Hint: " << h.key << " -> " << h.value << std::endl;
+}
+
+void dkvsHandler::commit_hints() {
+  std::sort(hints.begin(), hints.end(), compare_timestamps);
+
+  std::cout << std::endl << "  Sorting Hints\n --------------------------------------------- " << std::endl;
+  int count = 0;
+  for (auto &h:hints) {
+    std::cout << "  [ " << ++count << " ] " << h.key << " -> " << h.value << std::endl;
+  }
+
+  std::cout << std::endl << "  Committing Hints\n --------------------------------------------- " << std::endl;
+  for (auto &h: hints) {
+    meta m;
+    local_put(m, h.key, h.value, h.timestamp);
+  }
+  std::cout << std::endl;
+  hints.clear();
+}
+
+bool dkvsHandler::compare_timestamps(const hint &a, const hint &b) {
+  return a.timestamp < b.timestamp;
 }
 
 void dkvsHandler::process_hints() {
@@ -178,7 +213,7 @@ void dkvsHandler::request_handoff(const node_info &n) {
       if (hint.node.ip == n.ip && hint.node.port == n.port) {
         indexes.push_back(num);
         meta m;
-        make_request(m, hint.node, hint.key, hint.value, hint.timestamp, "put");
+        make_request(m, hint.node, hint.key, hint.value, hint.timestamp, "send_hint");
 //        std::cout << "made put request to: " << hint.node.ip << " timestamp " << hint.timestamp << " value:"
 //                  << hint.value << std::endl;
       }

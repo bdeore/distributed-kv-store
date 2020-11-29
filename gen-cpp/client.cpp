@@ -27,6 +27,8 @@ void tokenize_line(std::string &line, std::vector<std::string> &tokens);
 void make_request(replica_node &coordinator, std::vector<std::string> &tokens);
 void print_results(meta &meta, int key);
 void print_metadata(meta &meta, std::string request);
+void print_menu();
+
 bool verbose_output;
 
 class replica_node {
@@ -89,22 +91,48 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
   if (tokens[tokens.size() - 1] == "-v") {
     verbose_output = true;
   }
+
   auto trans_ep = make_shared<TSocket>(coordinator.ip, coordinator.port);
   auto trans_buf = make_shared<TBufferedTransport>(trans_ep);
   auto proto = make_shared<TBinaryProtocol>(trans_buf);
   dkvsClient client(proto);
   trans_ep->open();
 
+  std::string op_consistency = "quorum";
+
   if (request == "get" && tokens.size() >= 2) {
+
     key = std::stoi(tokens[1]);
-    client.get(meta, key, "A");
+
+    if (tokens.size() >= 4 && tokens[2] == "-c") {
+      op_consistency = tokens[3];
+      if (op_consistency == "q" || op_consistency == "Q" || op_consistency == "quorum")
+        op_consistency = "quorum";
+      else if (op_consistency == "o" || op_consistency == "O" || op_consistency == "one")
+        op_consistency = "one";
+      else
+        std::cout << " Invalid value of Consistency" << std::endl;
+    }
+
+    client.get(meta, key, op_consistency);
     print_results(meta, key);
     if (verbose_output) print_metadata(meta, "get");
   } else if ((request == "put") && tokens.size() >= 3) {
+
     key = std::stoi(tokens[1]);
     value = tokens[2];
-    consistency = tokens[3];
-    client.put(meta, key, value, "A", 10, true);
+
+    if (tokens.size() >= 5 && tokens[3] == "-c") {
+      op_consistency = tokens[4];
+      if (op_consistency == "q" || op_consistency == "Q" || op_consistency == "quorum")
+        op_consistency = "quorum";
+      else if (op_consistency == "o" || op_consistency == "O" || op_consistency == "one")
+        op_consistency = "one";
+      else
+        std::cout << "  Invalid value of Consistency" << std::endl;
+    }
+
+    client.put(meta, key, value, op_consistency, 0, true);
     if (verbose_output) print_metadata(meta, "get");
   } else {
     std::cout << " Invalid [Command|Format] : ";
@@ -112,6 +140,7 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
       std::cout << token << " ";
     }
     std::cout << std::endl;
+    print_menu();
   }
   verbose_output = false;
   trans_ep->close();
@@ -175,3 +204,12 @@ void print_results(meta &meta, int key) {
   } else std::cout << std::endl;
 }
 
+void print_menu() {
+  std::cout << std::endl << " ---------------------------------------------------------\n"
+            << "                     commands supported\n"
+            << " ---------------------------------------------------------\n"
+            << "   put <key> <value> [-c <one|o|O> | <quorum|q|Q> ] [-v]\n"
+            << "   get <key> [-c <one|o|O> | <quorum|q|Q> ] [-v]\n"
+            << " ---------------------------------------------------------\n" << std::endl;
+
+}

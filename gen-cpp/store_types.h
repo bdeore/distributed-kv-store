@@ -25,13 +25,17 @@ class meta;
 
 class node_info;
 
+class hint;
+
 typedef struct _meta__isset {
-  _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false) {}
+  _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false), vc(false), response(false) {}
   bool timestamp :1;
   bool success :1;
   bool ip :1;
   bool port :1;
   bool result :1;
+  bool vc :1;
+  bool response :1;
 } _meta__isset;
 
 class meta : public virtual ::apache::thrift::TBase {
@@ -48,6 +52,8 @@ class meta : public virtual ::apache::thrift::TBase {
   std::string ip;
   int16_t port;
   std::string result;
+  std::vector<node_info>  vc;
+  std::vector<bool>  response;
 
   _meta__isset __isset;
 
@@ -61,6 +67,10 @@ class meta : public virtual ::apache::thrift::TBase {
 
   void __set_result(const std::string& val);
 
+  void __set_vc(const std::vector<node_info> & val);
+
+  void __set_response(const std::vector<bool> & val);
+
   bool operator == (const meta & rhs) const
   {
     if (!(timestamp == rhs.timestamp))
@@ -72,6 +82,10 @@ class meta : public virtual ::apache::thrift::TBase {
     if (!(port == rhs.port))
       return false;
     if (!(result == rhs.result))
+      return false;
+    if (!(vc == rhs.vc))
+      return false;
+    if (!(response == rhs.response))
       return false;
     return true;
   }
@@ -138,6 +152,60 @@ class node_info : public virtual ::apache::thrift::TBase {
 void swap(node_info &a, node_info &b);
 
 std::ostream& operator<<(std::ostream& out, const node_info& obj);
+
+typedef struct _hint__isset {
+  _hint__isset() : key(false), value(false), timestamp(false) {}
+  bool key :1;
+  bool value :1;
+  bool timestamp :1;
+} _hint__isset;
+
+class hint : public virtual ::apache::thrift::TBase {
+ public:
+
+  hint(const hint&);
+  hint& operator=(const hint&);
+  hint() : key(0), value(), timestamp(0) {
+  }
+
+  virtual ~hint() noexcept;
+  int16_t key;
+  std::string value;
+  int32_t timestamp;
+
+  _hint__isset __isset;
+
+  void __set_key(const int16_t val);
+
+  void __set_value(const std::string& val);
+
+  void __set_timestamp(const int32_t val);
+
+  bool operator == (const hint & rhs) const
+  {
+    if (!(key == rhs.key))
+      return false;
+    if (!(value == rhs.value))
+      return false;
+    if (!(timestamp == rhs.timestamp))
+      return false;
+    return true;
+  }
+  bool operator != (const hint &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const hint & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(hint &a, hint &b);
+
+std::ostream& operator<<(std::ostream& out, const hint& obj);
 
 
 

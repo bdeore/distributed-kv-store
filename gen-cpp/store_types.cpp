@@ -37,6 +37,14 @@ void meta::__set_port(const int16_t val) {
 void meta::__set_result(const std::string& val) {
   this->result = val;
 }
+
+void meta::__set_vc(const std::vector<node_info> & val) {
+  this->vc = val;
+}
+
+void meta::__set_response(const std::vector<bool> & val) {
+  this->response = val;
+}
 std::ostream& operator<<(std::ostream& out, const meta& obj)
 {
   obj.printTo(out);
@@ -105,6 +113,46 @@ uint32_t meta::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 6:
+        if (ftype == ::apache::thrift::protocol::T_LIST) {
+          {
+            this->vc.clear();
+            uint32_t _size0;
+            ::apache::thrift::protocol::TType _etype3;
+            xfer += iprot->readListBegin(_etype3, _size0);
+            this->vc.resize(_size0);
+            uint32_t _i4;
+            for (_i4 = 0; _i4 < _size0; ++_i4)
+            {
+              xfer += this->vc[_i4].read(iprot);
+            }
+            xfer += iprot->readListEnd();
+          }
+          this->__isset.vc = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 7:
+        if (ftype == ::apache::thrift::protocol::T_LIST) {
+          {
+            this->response.clear();
+            uint32_t _size5;
+            ::apache::thrift::protocol::TType _etype8;
+            xfer += iprot->readListBegin(_etype8, _size5);
+            this->response.resize(_size5);
+            uint32_t _i9;
+            for (_i9 = 0; _i9 < _size5; ++_i9)
+            {
+              xfer += iprot->readBool(this->response[_i9]);
+            }
+            xfer += iprot->readListEnd();
+          }
+          this->__isset.response = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -142,6 +190,30 @@ uint32_t meta::write(::apache::thrift::protocol::TProtocol* oprot) const {
   xfer += oprot->writeString(this->result);
   xfer += oprot->writeFieldEnd();
 
+  xfer += oprot->writeFieldBegin("vc", ::apache::thrift::protocol::T_LIST, 6);
+  {
+    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->vc.size()));
+    std::vector<node_info> ::const_iterator _iter10;
+    for (_iter10 = this->vc.begin(); _iter10 != this->vc.end(); ++_iter10)
+    {
+      xfer += (*_iter10).write(oprot);
+    }
+    xfer += oprot->writeListEnd();
+  }
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("response", ::apache::thrift::protocol::T_LIST, 7);
+  {
+    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_BOOL, static_cast<uint32_t>(this->response.size()));
+    std::vector<bool> ::const_iterator _iter11;
+    for (_iter11 = this->response.begin(); _iter11 != this->response.end(); ++_iter11)
+    {
+      xfer += oprot->writeBool((*_iter11));
+    }
+    xfer += oprot->writeListEnd();
+  }
+  xfer += oprot->writeFieldEnd();
+
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;
@@ -154,24 +226,30 @@ void swap(meta &a, meta &b) {
   swap(a.ip, b.ip);
   swap(a.port, b.port);
   swap(a.result, b.result);
+  swap(a.vc, b.vc);
+  swap(a.response, b.response);
   swap(a.__isset, b.__isset);
 }
 
-meta::meta(const meta& other0) {
-  timestamp = other0.timestamp;
-  success = other0.success;
-  ip = other0.ip;
-  port = other0.port;
-  result = other0.result;
-  __isset = other0.__isset;
+meta::meta(const meta& other12) {
+  timestamp = other12.timestamp;
+  success = other12.success;
+  ip = other12.ip;
+  port = other12.port;
+  result = other12.result;
+  vc = other12.vc;
+  response = other12.response;
+  __isset = other12.__isset;
 }
-meta& meta::operator=(const meta& other1) {
-  timestamp = other1.timestamp;
-  success = other1.success;
-  ip = other1.ip;
-  port = other1.port;
-  result = other1.result;
-  __isset = other1.__isset;
+meta& meta::operator=(const meta& other13) {
+  timestamp = other13.timestamp;
+  success = other13.success;
+  ip = other13.ip;
+  port = other13.port;
+  result = other13.result;
+  vc = other13.vc;
+  response = other13.response;
+  __isset = other13.__isset;
   return *this;
 }
 void meta::printTo(std::ostream& out) const {
@@ -182,6 +260,8 @@ void meta::printTo(std::ostream& out) const {
   out << ", " << "ip=" << to_string(ip);
   out << ", " << "port=" << to_string(port);
   out << ", " << "result=" << to_string(result);
+  out << ", " << "vc=" << to_string(vc);
+  out << ", " << "response=" << to_string(response);
   out << ")";
 }
 
@@ -278,15 +358,15 @@ void swap(node_info &a, node_info &b) {
   swap(a.__isset, b.__isset);
 }
 
-node_info::node_info(const node_info& other2) {
-  ip = other2.ip;
-  port = other2.port;
-  __isset = other2.__isset;
+node_info::node_info(const node_info& other14) {
+  ip = other14.ip;
+  port = other14.port;
+  __isset = other14.__isset;
 }
-node_info& node_info::operator=(const node_info& other3) {
-  ip = other3.ip;
-  port = other3.port;
-  __isset = other3.__isset;
+node_info& node_info::operator=(const node_info& other15) {
+  ip = other15.ip;
+  port = other15.port;
+  __isset = other15.__isset;
   return *this;
 }
 void node_info::printTo(std::ostream& out) const {
@@ -294,6 +374,138 @@ void node_info::printTo(std::ostream& out) const {
   out << "node_info(";
   out << "ip=" << to_string(ip);
   out << ", " << "port=" << to_string(port);
+  out << ")";
+}
+
+
+hint::~hint() noexcept {
+}
+
+
+void hint::__set_key(const int16_t val) {
+  this->key = val;
+}
+
+void hint::__set_value(const std::string& val) {
+  this->value = val;
+}
+
+void hint::__set_timestamp(const int32_t val) {
+  this->timestamp = val;
+}
+std::ostream& operator<<(std::ostream& out, const hint& obj)
+{
+  obj.printTo(out);
+  return out;
+}
+
+
+uint32_t hint::read(::apache::thrift::protocol::TProtocol* iprot) {
+
+  ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
+  uint32_t xfer = 0;
+  std::string fname;
+  ::apache::thrift::protocol::TType ftype;
+  int16_t fid;
+
+  xfer += iprot->readStructBegin(fname);
+
+  using ::apache::thrift::protocol::TProtocolException;
+
+
+  while (true)
+  {
+    xfer += iprot->readFieldBegin(fname, ftype, fid);
+    if (ftype == ::apache::thrift::protocol::T_STOP) {
+      break;
+    }
+    switch (fid)
+    {
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_I16) {
+          xfer += iprot->readI16(this->key);
+          this->__isset.key = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 2:
+        if (ftype == ::apache::thrift::protocol::T_STRING) {
+          xfer += iprot->readString(this->value);
+          this->__isset.value = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 3:
+        if (ftype == ::apache::thrift::protocol::T_I32) {
+          xfer += iprot->readI32(this->timestamp);
+          this->__isset.timestamp = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      default:
+        xfer += iprot->skip(ftype);
+        break;
+    }
+    xfer += iprot->readFieldEnd();
+  }
+
+  xfer += iprot->readStructEnd();
+
+  return xfer;
+}
+
+uint32_t hint::write(::apache::thrift::protocol::TProtocol* oprot) const {
+  uint32_t xfer = 0;
+  ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
+  xfer += oprot->writeStructBegin("hint");
+
+  xfer += oprot->writeFieldBegin("key", ::apache::thrift::protocol::T_I16, 1);
+  xfer += oprot->writeI16(this->key);
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("value", ::apache::thrift::protocol::T_STRING, 2);
+  xfer += oprot->writeString(this->value);
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("timestamp", ::apache::thrift::protocol::T_I32, 3);
+  xfer += oprot->writeI32(this->timestamp);
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldStop();
+  xfer += oprot->writeStructEnd();
+  return xfer;
+}
+
+void swap(hint &a, hint &b) {
+  using ::std::swap;
+  swap(a.key, b.key);
+  swap(a.value, b.value);
+  swap(a.timestamp, b.timestamp);
+  swap(a.__isset, b.__isset);
+}
+
+hint::hint(const hint& other16) {
+  key = other16.key;
+  value = other16.value;
+  timestamp = other16.timestamp;
+  __isset = other16.__isset;
+}
+hint& hint::operator=(const hint& other17) {
+  key = other17.key;
+  value = other17.value;
+  timestamp = other17.timestamp;
+  __isset = other17.__isset;
+  return *this;
+}
+void hint::printTo(std::ostream& out) const {
+  using ::apache::thrift::to_string;
+  out << "hint(";
+  out << "key=" << to_string(key);
+  out << ", " << "value=" << to_string(value);
+  out << ", " << "timestamp=" << to_string(timestamp);
   out << ")";
 }
 

@@ -25,6 +25,7 @@ class dkvsIf {
   virtual void get(meta& _return, const int16_t key, const std::string& consistency) = 0;
   virtual void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator) = 0;
   virtual void request_handoff(const node_info& n) = 0;
+  virtual void receive_hint(const hint& h) = 0;
 };
 
 class dkvsIfFactory {
@@ -61,6 +62,9 @@ class dkvsNull : virtual public dkvsIf {
     return;
   }
   void request_handoff(const node_info& /* n */) {
+    return;
+  }
+  void receive_hint(const hint& /* h */) {
     return;
   }
 };
@@ -394,6 +398,92 @@ class dkvs_request_handoff_presult {
 
 };
 
+typedef struct _dkvs_receive_hint_args__isset {
+  _dkvs_receive_hint_args__isset() : h(false) {}
+  bool h :1;
+} _dkvs_receive_hint_args__isset;
+
+class dkvs_receive_hint_args {
+ public:
+
+  dkvs_receive_hint_args(const dkvs_receive_hint_args&);
+  dkvs_receive_hint_args& operator=(const dkvs_receive_hint_args&);
+  dkvs_receive_hint_args() {
+  }
+
+  virtual ~dkvs_receive_hint_args() noexcept;
+  hint h;
+
+  _dkvs_receive_hint_args__isset __isset;
+
+  void __set_h(const hint& val);
+
+  bool operator == (const dkvs_receive_hint_args & rhs) const
+  {
+    if (!(h == rhs.h))
+      return false;
+    return true;
+  }
+  bool operator != (const dkvs_receive_hint_args &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const dkvs_receive_hint_args & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+
+class dkvs_receive_hint_pargs {
+ public:
+
+
+  virtual ~dkvs_receive_hint_pargs() noexcept;
+  const hint* h;
+
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+
+class dkvs_receive_hint_result {
+ public:
+
+  dkvs_receive_hint_result(const dkvs_receive_hint_result&);
+  dkvs_receive_hint_result& operator=(const dkvs_receive_hint_result&);
+  dkvs_receive_hint_result() {
+  }
+
+  virtual ~dkvs_receive_hint_result() noexcept;
+
+  bool operator == (const dkvs_receive_hint_result & /* rhs */) const
+  {
+    return true;
+  }
+  bool operator != (const dkvs_receive_hint_result &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const dkvs_receive_hint_result & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+
+class dkvs_receive_hint_presult {
+ public:
+
+
+  virtual ~dkvs_receive_hint_presult() noexcept;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+
+};
+
 class dkvsClient : virtual public dkvsIf {
  public:
   dkvsClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot) {
@@ -428,6 +518,9 @@ class dkvsClient : virtual public dkvsIf {
   void request_handoff(const node_info& n);
   void send_request_handoff(const node_info& n);
   void recv_request_handoff();
+  void receive_hint(const hint& h);
+  void send_receive_hint(const hint& h);
+  void recv_receive_hint();
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> poprot_;
@@ -446,12 +539,14 @@ class dkvsProcessor : public ::apache::thrift::TDispatchProcessor {
   void process_get(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_put(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_request_handoff(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
+  void process_receive_hint(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
  public:
   dkvsProcessor(::std::shared_ptr<dkvsIf> iface) :
     iface_(iface) {
     processMap_["get"] = &dkvsProcessor::process_get;
     processMap_["put"] = &dkvsProcessor::process_put;
     processMap_["request_handoff"] = &dkvsProcessor::process_request_handoff;
+    processMap_["receive_hint"] = &dkvsProcessor::process_receive_hint;
   }
 
   virtual ~dkvsProcessor() {}
@@ -509,6 +604,15 @@ class dkvsMultiface : virtual public dkvsIf {
     ifaces_[i]->request_handoff(n);
   }
 
+  void receive_hint(const hint& h) {
+    size_t sz = ifaces_.size();
+    size_t i = 0;
+    for (; i < (sz - 1); ++i) {
+      ifaces_[i]->receive_hint(h);
+    }
+    ifaces_[i]->receive_hint(h);
+  }
+
 };
 
 // The 'concurrent' client is a thread safe client that correctly handles
@@ -550,6 +654,9 @@ class dkvsConcurrentClient : virtual public dkvsIf {
   void request_handoff(const node_info& n);
   int32_t send_request_handoff(const node_info& n);
   void recv_request_handoff(const int32_t seqid);
+  void receive_hint(const hint& h);
+  int32_t send_receive_hint(const hint& h);
+  void recv_receive_hint(const int32_t seqid);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> poprot_;

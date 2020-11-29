@@ -13,13 +13,11 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <filesystem>
+#include <algorithm>
 #include <utility>
 #include <chrono>
 #include <vector>
-#include <list>
 #include <map>
-#include <thread>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
@@ -55,6 +53,7 @@ class dkvsHandler : virtual public dkvsIf {
   int range_begin, range_end;
   std::vector<replica_node> nodes;
   std::vector<handoff_hint> pending_handoff{};
+  std::vector<hint> hints;
   std::map<int16_t, std::string> mem_table;
   bool log_replay;
 
@@ -69,6 +68,9 @@ class dkvsHandler : virtual public dkvsIf {
   void put(meta &_return, int16_t key, const std::string &value, const std::string &consistency,
            int32_t timestamp, bool is_coordinator) override;
   void request_handoff(const node_info &n) override;
+  void receive_hint(const hint &h) override;
+  void commit_hints();
+  static bool compare_timestamps(const hint &a, const hint &b);
 
  public:
   int port;
