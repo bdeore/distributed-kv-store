@@ -186,25 +186,25 @@ void meta::printTo(std::ostream& out) const {
 }
 
 
-node::~node() noexcept {
+node_info::~node_info() noexcept {
 }
 
 
-void node::__set_ip(const std::string& val) {
+void node_info::__set_ip(const std::string& val) {
   this->ip = val;
 }
 
-void node::__set_port(const int16_t val) {
+void node_info::__set_port(const int16_t val) {
   this->port = val;
 }
-std::ostream& operator<<(std::ostream& out, const node& obj)
+std::ostream& operator<<(std::ostream& out, const node_info& obj)
 {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t node::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t node_info::read(::apache::thrift::protocol::TProtocol* iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -253,10 +253,10 @@ uint32_t node::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t node::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t node_info::write(::apache::thrift::protocol::TProtocol* oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
-  xfer += oprot->writeStructBegin("node");
+  xfer += oprot->writeStructBegin("node_info");
 
   xfer += oprot->writeFieldBegin("ip", ::apache::thrift::protocol::T_STRING, 1);
   xfer += oprot->writeString(this->ip);
@@ -271,27 +271,27 @@ uint32_t node::write(::apache::thrift::protocol::TProtocol* oprot) const {
   return xfer;
 }
 
-void swap(node &a, node &b) {
+void swap(node_info &a, node_info &b) {
   using ::std::swap;
   swap(a.ip, b.ip);
   swap(a.port, b.port);
   swap(a.__isset, b.__isset);
 }
 
-node::node(const node& other2) {
+node_info::node_info(const node_info& other2) {
   ip = other2.ip;
   port = other2.port;
   __isset = other2.__isset;
 }
-node& node::operator=(const node& other3) {
+node_info& node_info::operator=(const node_info& other3) {
   ip = other3.ip;
   port = other3.port;
   __isset = other3.__isset;
   return *this;
 }
-void node::printTo(std::ostream& out) const {
+void node_info::printTo(std::ostream& out) const {
   using ::apache::thrift::to_string;
-  out << "node(";
+  out << "node_info(";
   out << "ip=" << to_string(ip);
   out << ", " << "port=" << to_string(port);
   out << ")";

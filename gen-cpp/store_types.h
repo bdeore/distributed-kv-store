@@ -23,7 +23,7 @@
 
 class meta;
 
-class node;
+class node_info;
 
 typedef struct _meta__isset {
   _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false) {}
@@ -91,31 +91,31 @@ void swap(meta &a, meta &b);
 
 std::ostream& operator<<(std::ostream& out, const meta& obj);
 
-typedef struct _node__isset {
-  _node__isset() : ip(false), port(false) {}
+typedef struct _node_info__isset {
+  _node_info__isset() : ip(false), port(false) {}
   bool ip :1;
   bool port :1;
-} _node__isset;
+} _node_info__isset;
 
-class node : public virtual ::apache::thrift::TBase {
+class node_info : public virtual ::apache::thrift::TBase {
  public:
 
-  node(const node&);
-  node& operator=(const node&);
-  node() : ip(), port(0) {
+  node_info(const node_info&);
+  node_info& operator=(const node_info&);
+  node_info() : ip(), port(0) {
   }
 
-  virtual ~node() noexcept;
+  virtual ~node_info() noexcept;
   std::string ip;
   int16_t port;
 
-  _node__isset __isset;
+  _node_info__isset __isset;
 
   void __set_ip(const std::string& val);
 
   void __set_port(const int16_t val);
 
-  bool operator == (const node & rhs) const
+  bool operator == (const node_info & rhs) const
   {
     if (!(ip == rhs.ip))
       return false;
@@ -123,11 +123,11 @@ class node : public virtual ::apache::thrift::TBase {
       return false;
     return true;
   }
-  bool operator != (const node &rhs) const {
+  bool operator != (const node_info &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const node & ) const;
+  bool operator < (const node_info & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
@@ -135,9 +135,9 @@ class node : public virtual ::apache::thrift::TBase {
   virtual void printTo(std::ostream& out) const;
 };
 
-void swap(node &a, node &b);
+void swap(node_info &a, node_info &b);
 
-std::ostream& operator<<(std::ostream& out, const node& obj);
+std::ostream& operator<<(std::ostream& out, const node_info& obj);
 
 
 

@@ -8,8 +8,8 @@ dkvsHandler::dkvsHandler(std::string &snitch_file) {
   snitch.open(snitch_file);
   if (snitch.is_open()) {
     getline(snitch, line);
-    node_info.str(line);
-    node_info >> node_ip >> node_port >> node_range_begin >> node_range_end;
+    s.str(line);
+    s >> node_ip >> node_port >> node_range_begin >> node_range_end;
 
     this->ip = node_ip;
     this->port = node_port;
@@ -32,11 +32,12 @@ dkvsHandler::dkvsHandler(std::string &snitch_file) {
   std::string f = "logs/" + ip;
   log.open(f);
   log_replay = true;
+  std::cout << std::endl << "  creating mem table from log... " << std::endl << std::endl;
   while (getline(log, line)) {
+    send_handoff_requests = true;
     std::stringstream temp;
     temp.str(line);
     temp >> key >> value >> timestamp;
-    std::cout << "value: " << value << " timestamp: " << timestamp << std::endl;
     meta meta;
     local_put(meta, std::stoi(key), value, std::stoi(timestamp));
   }
@@ -45,11 +46,20 @@ dkvsHandler::dkvsHandler(std::string &snitch_file) {
 }
 
 void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consistency) {
+  if (send_handoff_requests) {
+    send_handoff_requests = false;
+    process_hints();
+  }
   local_get(_return, key);
 }
 
 void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
                       const int32_t timestamp, const bool is_coordinator) {
+  if (send_handoff_requests) {
+    send_handoff_requests = false;
+    process_hints();
+  }
+
   if (is_coordinator) {
     int failed = 0, time_stamp = get_time_in_seconds();
     std::string val_timestamp = value + " " + std::to_string(time_stamp);
@@ -59,22 +69,20 @@ void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value
     find_forwarding_nodes(key, forwarding_nodes);
     for (const auto &index:forwarding_nodes) {
       try {
-        make_request(meta, nodes.at(index), key, val_timestamp, time_stamp);
+        make_request(meta, nodes.at(index), key, val_timestamp, time_stamp, "put");
       } catch (...) {
         handoff_hint request(nodes.at(index), key, val_timestamp, time_stamp);
         pending_handoff.push_back(request);
+        std::cout << "  Stored Hint for Node: [" << nodes.at(index).ip << ":" << nodes.at(index).port << " ]"
+                  << std::endl;
         failed++;
       }
     }
-    if (failed >= 2) std::cout << "put failed" << std::endl;
+    if (failed >= 2) std::cout << "  Put Failed - [ Insufficient Replicas ]" << std::endl;
   } else {
     local_put(_return, key, value, timestamp);
   }
-}
-
-void dkvsHandler::request_handoff(const node &n) {
-  // Your implementation goes here
-  printf("request_handoff\n");
+  send_handoff_requests = false;
 }
 
 void dkvsHandler::local_get(meta &_return, int16_t key) {
@@ -89,7 +97,7 @@ void dkvsHandler::local_get(meta &_return, int16_t key) {
     ss << it->second;
     ss >> value >> time_stamp;
 
-    std::cout << "value: " << value << " timestamp: " << time_stamp << std::endl;
+//    std::cout << "value: " << value << " timestamp: " << time_stamp << std::endl;
     _return.__set_result(value);
     _return.__set_success(true);
     _return.__set_timestamp(std::stoi(time_stamp));
@@ -123,12 +131,12 @@ void dkvsHandler::local_put(meta &_return, int16_t key, const std::string &value
     log << log_entry;
     log.close();
   }
+  std::cout << "  Pair: [" << key << " -> " << value << "] Inserted" << std::endl;
 
-  std::cout << "value inserted: " << value << std::endl;
 }
 
 void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const std::string &value,
-                               int32_t timestamp) {
+                               int32_t timestamp, const std::string &request) {
   if (node.ip == ip && node.port == port) {
     local_put(meta, key, value, timestamp);
   } else {
@@ -138,9 +146,52 @@ void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const
     auto proto = make_shared<TBinaryProtocol>(trans_buf);
     dkvsClient proxy(proto);
     trans_ep->open();
-    proxy.put(meta, key, value, "a", timestamp, false);
+    if (request == "put") {
+      proxy.put(meta, key, value, "a", timestamp, false);
+    } else if (request == "handoff") {
+      node_info current;
+      current.port = port;
+      current.ip = ip;
+      proxy.request_handoff(current);
+    }
     trans_ep->close();
   }
+}
+
+void dkvsHandler::process_hints() {
+  for (const auto &node:nodes) {
+    if (node.ip == ip && node.port == port) {}
+    else {
+      meta m;
+      make_request(m, node, 0, "", 0, "handoff");
+    }
+  }
+}
+
+void dkvsHandler::request_handoff(const node_info &n) {
+  std::cout << std::endl << "  Handoff Request from: [ " << n.ip << ":" << n.port << " ]";
+  std::vector<int> indexes;
+  if (!pending_handoff.empty()) {
+    int num = -1;
+    for (auto &hint:pending_handoff) {
+      ++num;
+      if (hint.node.ip == n.ip && hint.node.port == n.port) {
+        indexes.push_back(num);
+        meta m;
+        make_request(m, hint.node, hint.key, hint.value, hint.timestamp, "put");
+//        std::cout << "made put request to: " << hint.node.ip << " timestamp " << hint.timestamp << " value:"
+//                  << hint.value << std::endl;
+      }
+    }
+
+    for (auto index:indexes) {
+      if ((pending_handoff.begin() + index) != pending_handoff.end())
+        pending_handoff.erase(pending_handoff.begin() + index);
+//      std::cout << "erase successful" << std::endl;
+    }
+  }
+
+  std::cout << " ...completed!\n" << std::endl;
 }
 
 void dkvsHandler::find_forwarding_nodes(int16_t key, std::vector<int> &forwarding_nodes) {
@@ -185,13 +236,16 @@ int main(int argc, char *argv[]) {
   std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(handler->port));
   std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
   std::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
+  std::shared_ptr<ThreadFactory> threadFactory(new ThreadFactory());
 
-  TSimpleServer server(processor, serverTransport, transportFactory, protocolFactory);
+  TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);
 
   std::cout << "\n -----------------------------------------------------\n"
             << "   server is running on: [ " << handler->ip << " : " << handler->port << " ]\n"
             << " -----------------------------------------------------\n\n";
+
   server.serve();
+
   return 0;
 }
 

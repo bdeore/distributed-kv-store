@@ -156,7 +156,7 @@ void print_metadata(meta &meta, std::string request) {
   time_t time(meta.timestamp);
 
   if (meta.success) {
-    std::cout << "   Server    : " << meta.ip << " : " << meta.port << "\n"
+    std::cout << "   Server    : " << meta.ip << ":" << meta.port << "\n"
               << "   Timestamp : " << std::put_time(std::localtime(&time), "%c %Z") << "\n"
               << " ---------------------------------------------\n"
               << std::endl;

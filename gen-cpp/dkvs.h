@@ -24,7 +24,7 @@ class dkvsIf {
   virtual ~dkvsIf() {}
   virtual void get(meta& _return, const int16_t key, const std::string& consistency) = 0;
   virtual void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator) = 0;
-  virtual void request_handoff(const node& n) = 0;
+  virtual void request_handoff(const node_info& n) = 0;
 };
 
 class dkvsIfFactory {
@@ -60,7 +60,7 @@ class dkvsNull : virtual public dkvsIf {
   void put(meta& /* _return */, const int16_t /* key */, const std::string& /* value */, const std::string& /* consistency */, const int32_t /* timestamp */, const bool /* is_coordinator */) {
     return;
   }
-  void request_handoff(const node& /* n */) {
+  void request_handoff(const node_info& /* n */) {
     return;
   }
 };
@@ -322,11 +322,11 @@ class dkvs_request_handoff_args {
   }
 
   virtual ~dkvs_request_handoff_args() noexcept;
-  node n;
+  node_info n;
 
   _dkvs_request_handoff_args__isset __isset;
 
-  void __set_n(const node& val);
+  void __set_n(const node_info& val);
 
   bool operator == (const dkvs_request_handoff_args & rhs) const
   {
@@ -351,7 +351,7 @@ class dkvs_request_handoff_pargs {
 
 
   virtual ~dkvs_request_handoff_pargs() noexcept;
-  const node* n;
+  const node_info* n;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
@@ -425,8 +425,8 @@ class dkvsClient : virtual public dkvsIf {
   void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
   void send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
   void recv_put(meta& _return);
-  void request_handoff(const node& n);
-  void send_request_handoff(const node& n);
+  void request_handoff(const node_info& n);
+  void send_request_handoff(const node_info& n);
   void recv_request_handoff();
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
@@ -500,7 +500,7 @@ class dkvsMultiface : virtual public dkvsIf {
     return;
   }
 
-  void request_handoff(const node& n) {
+  void request_handoff(const node_info& n) {
     size_t sz = ifaces_.size();
     size_t i = 0;
     for (; i < (sz - 1); ++i) {
@@ -547,8 +547,8 @@ class dkvsConcurrentClient : virtual public dkvsIf {
   void put(meta& _return, const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
   int32_t send_put(const int16_t key, const std::string& value, const std::string& consistency, const int32_t timestamp, const bool is_coordinator);
   void recv_put(meta& _return, const int32_t seqid);
-  void request_handoff(const node& n);
-  int32_t send_request_handoff(const node& n);
+  void request_handoff(const node_info& n);
+  int32_t send_request_handoff(const node_info& n);
   void recv_request_handoff(const int32_t seqid);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;

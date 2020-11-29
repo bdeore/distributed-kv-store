@@ -4,9 +4,11 @@
 #include "dkvs.h"
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
+#include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TSocket.h>
+#include <thrift/concurrency/ThreadFactory.h>
 
 #include <iostream>
 #include <fstream>
@@ -17,11 +19,13 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <thread>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
 using namespace apache::thrift::server;
+using namespace apache::thrift::concurrency;
 using std::make_shared;
 
 class replica_node {
@@ -34,23 +38,23 @@ class replica_node {
 };
 
 class handoff_hint {
+ public:
   replica_node node;
   int16_t key;
   std::string value;
   int32_t timestamp;
 
- public:
   handoff_hint(replica_node node, int16_t key, std::string value, int32_t timestamp);
 };
 
 class dkvsHandler : virtual public dkvsIf {
  private:
   std::fstream snitch, log;
-  std::stringstream node_info;
+  std::stringstream s;
   std::string line;
   int range_begin, range_end;
   std::vector<replica_node> nodes;
-  std::list<handoff_hint> pending_handoff{};
+  std::vector<handoff_hint> pending_handoff{};
   std::map<int16_t, std::string> mem_table;
   bool log_replay;
 
@@ -59,17 +63,19 @@ class dkvsHandler : virtual public dkvsIf {
   void local_put(meta &_return, int16_t key, const std::string &value, int32_t timestamp);
   void find_forwarding_nodes(int16_t key, std::vector<int> &forwarding_nodes);
   int find_primary_replica(int16_t key);
-  void make_request(meta &meta, replica_node node, int16_t key, const std::string &value, int32_t timestamp);
-  void get(meta &_return, const int16_t key, const std::string &consistency) override;
-  void put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
-           const int32_t timestamp, const bool is_coordinator) override;
-  void request_handoff(const node &n) override;
+  void make_request(meta &meta, replica_node node, int16_t key, const std::string &value, int32_t timestamp,
+                    const std::string &request);
+  void get(meta &_return, int16_t key, const std::string &consistency) override;
+  void put(meta &_return, int16_t key, const std::string &value, const std::string &consistency,
+           int32_t timestamp, bool is_coordinator) override;
+  void request_handoff(const node_info &n) override;
 
  public:
   int port;
   std::string ip;
   explicit dkvsHandler(std::string &snitch_file);
-
+  void process_hints();
+  bool send_handoff_requests;
 };
 
 #endif

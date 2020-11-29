@@ -739,13 +739,13 @@ void dkvsClient::recv_put(meta& _return)
   throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "put failed: unknown result");
 }
 
-void dkvsClient::request_handoff(const node& n)
+void dkvsClient::request_handoff(const node_info& n)
 {
   send_request_handoff(n);
   recv_request_handoff();
 }
 
-void dkvsClient::send_request_handoff(const node& n)
+void dkvsClient::send_request_handoff(const node_info& n)
 {
   int32_t cseqid = 0;
   oprot_->writeMessageBegin("request_handoff", ::apache::thrift::protocol::T_CALL, cseqid);
@@ -1152,13 +1152,13 @@ void dkvsConcurrentClient::recv_put(meta& _return, const int32_t seqid)
   } // end while(true)
 }
 
-void dkvsConcurrentClient::request_handoff(const node& n)
+void dkvsConcurrentClient::request_handoff(const node_info& n)
 {
   int32_t seqid = send_request_handoff(n);
   recv_request_handoff(seqid);
 }
 
-int32_t dkvsConcurrentClient::send_request_handoff(const node& n)
+int32_t dkvsConcurrentClient::send_request_handoff(const node_info& n)
 {
   int32_t cseqid = this->sync_->generateSeqId();
   ::apache::thrift::async::TConcurrentSendSentry sentry(this->sync_.get());
