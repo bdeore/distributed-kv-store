@@ -50,6 +50,14 @@ uint32_t dkvs_get_args::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 3:
+        if (ftype == ::apache::thrift::protocol::T_BOOL) {
+          xfer += iprot->readBool(this->is_coordinator);
+          this->__isset.is_coordinator = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -75,6 +83,10 @@ uint32_t dkvs_get_args::write(::apache::thrift::protocol::TProtocol* oprot) cons
   xfer += oprot->writeString(this->consistency);
   xfer += oprot->writeFieldEnd();
 
+  xfer += oprot->writeFieldBegin("is_coordinator", ::apache::thrift::protocol::T_BOOL, 3);
+  xfer += oprot->writeBool(this->is_coordinator);
+  xfer += oprot->writeFieldEnd();
+
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;
@@ -96,6 +108,10 @@ uint32_t dkvs_get_pargs::write(::apache::thrift::protocol::TProtocol* oprot) con
 
   xfer += oprot->writeFieldBegin("consistency", ::apache::thrift::protocol::T_STRING, 2);
   xfer += oprot->writeString((*(this->consistency)));
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("is_coordinator", ::apache::thrift::protocol::T_BOOL, 3);
+  xfer += oprot->writeBool((*(this->is_coordinator)));
   xfer += oprot->writeFieldEnd();
 
   xfer += oprot->writeFieldStop();
@@ -137,6 +153,14 @@ uint32_t dkvs_get_result::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += this->systemException.read(iprot);
+          this->__isset.systemException = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -158,6 +182,10 @@ uint32_t dkvs_get_result::write(::apache::thrift::protocol::TProtocol* oprot) co
   if (this->__isset.success) {
     xfer += oprot->writeFieldBegin("success", ::apache::thrift::protocol::T_STRUCT, 0);
     xfer += this->success.write(oprot);
+    xfer += oprot->writeFieldEnd();
+  } else if (this->__isset.systemException) {
+    xfer += oprot->writeFieldBegin("systemException", ::apache::thrift::protocol::T_STRUCT, 1);
+    xfer += this->systemException.write(oprot);
     xfer += oprot->writeFieldEnd();
   }
   xfer += oprot->writeFieldStop();
@@ -195,6 +223,14 @@ uint32_t dkvs_get_presult::read(::apache::thrift::protocol::TProtocol* iprot) {
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += (*(this->success)).read(iprot);
           this->__isset.success = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += this->systemException.read(iprot);
+          this->__isset.systemException = true;
         } else {
           xfer += iprot->skip(ftype);
         }
@@ -388,6 +424,14 @@ uint32_t dkvs_put_result::read(::apache::thrift::protocol::TProtocol* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += this->systemException.read(iprot);
+          this->__isset.systemException = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -409,6 +453,10 @@ uint32_t dkvs_put_result::write(::apache::thrift::protocol::TProtocol* oprot) co
   if (this->__isset.success) {
     xfer += oprot->writeFieldBegin("success", ::apache::thrift::protocol::T_STRUCT, 0);
     xfer += this->success.write(oprot);
+    xfer += oprot->writeFieldEnd();
+  } else if (this->__isset.systemException) {
+    xfer += oprot->writeFieldBegin("systemException", ::apache::thrift::protocol::T_STRUCT, 1);
+    xfer += this->systemException.write(oprot);
     xfer += oprot->writeFieldEnd();
   }
   xfer += oprot->writeFieldStop();
@@ -446,6 +494,14 @@ uint32_t dkvs_put_presult::read(::apache::thrift::protocol::TProtocol* iprot) {
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += (*(this->success)).read(iprot);
           this->__isset.success = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += this->systemException.read(iprot);
+          this->__isset.systemException = true;
         } else {
           xfer += iprot->skip(ftype);
         }
@@ -774,13 +830,13 @@ uint32_t dkvs_receive_hint_presult::read(::apache::thrift::protocol::TProtocol* 
   return xfer;
 }
 
-void dkvsClient::get(meta& _return, const int16_t key, const std::string& consistency)
+void dkvsClient::get(meta& _return, const int16_t key, const std::string& consistency, const bool is_coordinator)
 {
-  send_get(key, consistency);
+  send_get(key, consistency, is_coordinator);
   recv_get(_return);
 }
 
-void dkvsClient::send_get(const int16_t key, const std::string& consistency)
+void dkvsClient::send_get(const int16_t key, const std::string& consistency, const bool is_coordinator)
 {
   int32_t cseqid = 0;
   oprot_->writeMessageBegin("get", ::apache::thrift::protocol::T_CALL, cseqid);
@@ -788,6 +844,7 @@ void dkvsClient::send_get(const int16_t key, const std::string& consistency)
   dkvs_get_pargs args;
   args.key = &key;
   args.consistency = &consistency;
+  args.is_coordinator = &is_coordinator;
   args.write(oprot_);
 
   oprot_->writeMessageEnd();
@@ -829,6 +886,9 @@ void dkvsClient::recv_get(meta& _return)
   if (result.__isset.success) {
     // _return pointer has now been filled
     return;
+  }
+  if (result.__isset.systemException) {
+    throw result.systemException;
   }
   throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "get failed: unknown result");
 }
@@ -891,6 +951,9 @@ void dkvsClient::recv_put(meta& _return)
   if (result.__isset.success) {
     // _return pointer has now been filled
     return;
+  }
+  if (result.__isset.systemException) {
+    throw result.systemException;
   }
   throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "put failed: unknown result");
 }
@@ -1043,8 +1106,11 @@ void dkvsProcessor::process_get(int32_t seqid, ::apache::thrift::protocol::TProt
 
   dkvs_get_result result;
   try {
-    iface_->get(result.success, args.key, args.consistency);
+    iface_->get(result.success, args.key, args.consistency, args.is_coordinator);
     result.__isset.success = true;
+  } catch (SystemException &systemException) {
+    result.systemException = systemException;
+    result.__isset.systemException = true;
   } catch (const std::exception& e) {
     if (this->eventHandler_.get() != NULL) {
       this->eventHandler_->handlerError(ctx, "dkvs.get");
@@ -1099,6 +1165,9 @@ void dkvsProcessor::process_put(int32_t seqid, ::apache::thrift::protocol::TProt
   try {
     iface_->put(result.success, args.key, args.value, args.consistency, args.timestamp, args.is_coordinator);
     result.__isset.success = true;
+  } catch (SystemException &systemException) {
+    result.systemException = systemException;
+    result.__isset.systemException = true;
   } catch (const std::exception& e) {
     if (this->eventHandler_.get() != NULL) {
       this->eventHandler_->handlerError(ctx, "dkvs.put");
@@ -1241,13 +1310,13 @@ void dkvsProcessor::process_receive_hint(int32_t seqid, ::apache::thrift::protoc
   return processor;
 }
 
-void dkvsConcurrentClient::get(meta& _return, const int16_t key, const std::string& consistency)
+void dkvsConcurrentClient::get(meta& _return, const int16_t key, const std::string& consistency, const bool is_coordinator)
 {
-  int32_t seqid = send_get(key, consistency);
+  int32_t seqid = send_get(key, consistency, is_coordinator);
   recv_get(_return, seqid);
 }
 
-int32_t dkvsConcurrentClient::send_get(const int16_t key, const std::string& consistency)
+int32_t dkvsConcurrentClient::send_get(const int16_t key, const std::string& consistency, const bool is_coordinator)
 {
   int32_t cseqid = this->sync_->generateSeqId();
   ::apache::thrift::async::TConcurrentSendSentry sentry(this->sync_.get());
@@ -1256,6 +1325,7 @@ int32_t dkvsConcurrentClient::send_get(const int16_t key, const std::string& con
   dkvs_get_pargs args;
   args.key = &key;
   args.consistency = &consistency;
+  args.is_coordinator = &is_coordinator;
   args.write(oprot_);
 
   oprot_->writeMessageEnd();
@@ -1314,6 +1384,10 @@ void dkvsConcurrentClient::recv_get(meta& _return, const int32_t seqid)
         // _return pointer has now been filled
         sentry.commit();
         return;
+      }
+      if (result.__isset.systemException) {
+        sentry.commit();
+        throw result.systemException;
       }
       // in a bad state, don't commit
       throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "get failed: unknown result");
@@ -1402,6 +1476,10 @@ void dkvsConcurrentClient::recv_put(meta& _return, const int32_t seqid)
         // _return pointer has now been filled
         sentry.commit();
         return;
+      }
+      if (result.__isset.systemException) {
+        sentry.commit();
+        throw result.systemException;
       }
       // in a bad state, don't commit
       throw ::apache::thrift::TApplicationException(::apache::thrift::TApplicationException::MISSING_RESULT, "put failed: unknown result");

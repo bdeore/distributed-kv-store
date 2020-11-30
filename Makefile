@@ -13,7 +13,7 @@ all:server client
 	mkdir	logs
 
 %.o:gen-cpp/%.cpp
-	$(CXX)	-g	-std=c++17	-Wall	-DHAVE_INTTYPES_H	-DHAVE_NETINET_IN_H	$(INC)	-c	$<	-o	$@
+	$(CXX)	-g	-std=c++17	-Wall	-Wextra	-pedantic	-DHAVE_INTTYPES_H	-DHAVE_NETINET_IN_H	$(INC)	-c	$<	-o	$@
 
 server:server.o	$(GEN_OBJ)
 	$(CXX)	-g $^	-o	$@	-std=c++17	-lstdc++	-L$(LIB_DIR)	-lthrift
@@ -27,7 +27,7 @@ run:
 
 start: all run
 
-restart:clean all run
+restart:clean all
 
 clean:
 	$(RM)	*.o	server	client

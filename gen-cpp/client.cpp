@@ -26,7 +26,7 @@ void create_node_vector(std::string &snitch_file, std::vector<replica_node> &nod
 void tokenize_line(std::string &line, std::vector<std::string> &tokens);
 void make_request(replica_node &coordinator, std::vector<std::string> &tokens);
 void print_results(meta &meta, int key);
-void print_metadata(meta &meta, std::string request);
+void print_metadata(meta &meta, const std::string &request);
 void print_menu();
 
 bool verbose_output;
@@ -85,7 +85,6 @@ void generate_prompt(replica_node &coordinator) {
 void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
   std::string request, value, consistency;
   request = tokens[0];
-  meta meta;
   int key;
 
   if (tokens[tokens.size() - 1] == "-v") {
@@ -101,6 +100,7 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
   std::string op_consistency = "quorum";
 
   if (request == "get" && tokens.size() >= 2) {
+    meta meta;
 
     key = std::stoi(tokens[1]);
 
@@ -114,10 +114,11 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
         std::cout << " Invalid value of Consistency" << std::endl;
     }
 
-    client.get(meta, key, op_consistency);
+    client.get(meta, key, op_consistency, true);
     print_results(meta, key);
     if (verbose_output) print_metadata(meta, "get");
   } else if ((request == "put") && tokens.size() >= 3) {
+    meta meta;
 
     key = std::stoi(tokens[1]);
     value = tokens[2];
@@ -133,7 +134,7 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
     }
 
     client.put(meta, key, value, op_consistency, 0, true);
-    if (verbose_output) print_metadata(meta, "get");
+    if (verbose_output) print_metadata(meta, "put");
   } else {
     std::cout << " Invalid [Command|Format] : ";
     for (const auto &token:tokens) {
@@ -178,22 +179,47 @@ int generate_random_number() {
   return 1 + (rand() >> 6) % 4 - 1;
 }
 
-void print_metadata(meta &meta, std::string request) {
-  std::cout << " ---------------------------------------------\n"
-            << "   Received Metadata "
-            << " \n ---------------------------------------------" << std::endl;
-  time_t time(meta.timestamp);
+void print_metadata(meta &meta, const std::string &request) {
 
-  if (meta.success) {
-    std::cout << "   Server    : " << meta.ip << ":" << meta.port << "\n"
-              << "   Timestamp : " << std::put_time(std::localtime(&time), "%c %Z") << "\n"
-              << " ---------------------------------------------\n"
-              << std::endl;
-  } else std::cout << std::endl;
+  if (request == "get") {
+    std::cout << " ----------------------------------------------------\n"
+              << "   Received Metadata: "
+              << " \n ----------------------------------------------------" << std::endl;
+    time_t time(meta.timestamp);
+
+    if (meta.success) {
+      std::cout << "   Server    : " << meta.ip << ":" << meta.port << "\n"
+                << "   Timestamp : " << std::put_time(std::localtime(&time), "%c %Z") << "\n"
+                << " ----------------------------------------------------\n"
+                << std::endl;
+    } else std::cout << std::endl;
+  } else if (request == "put") {
+    std::cout << " -------------------------------------------------------------\n"
+              << "   " << ((meta.success) ? "Put Successful - " : "Put Failed - ") << "Received Metadata: "
+              << " \n -------------------------------------------------------------" << std::endl;
+
+    for (auto d: meta.debug) {
+      std::stringstream ss;
+      std::string ip, success;
+      int32_t port, tp;
+      ss << d;
+      ss >> ip >> port >> success >> tp;
+      time_t time(tp);
+
+      if (success == "false") {
+        std::cout << "  [" << ((success == "true") ? "\u2713" : "X") << "] " << ip << ":" << port << " ->  "
+                  << "Node Failed " << std::endl;
+      } else {
+        std::cout << "  [" << ((success == "true") ? "\u2713" : "X") << "] " << ip << ":" << port << " ->  "
+                  << std::put_time(std::localtime(&time), "%c %Z") << " " << std::endl;
+      }
+    }
+    std::cout << std::endl;
+  }
 }
 
 void print_results(meta &meta, int key) {
-  std::cout << std::endl << " ---------------------------------\n"
+  std::cout << " ---------------------------------\n"
             << "   Key " << ((meta.success) ? "Exists" : "Does Not Exist")
             << " \n ---------------------------------" << std::endl;
   if (meta.success) {

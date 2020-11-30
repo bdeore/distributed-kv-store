@@ -27,15 +27,16 @@ class node_info;
 
 class hint;
 
+class SystemException;
+
 typedef struct _meta__isset {
-  _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false), vc(false), response(false) {}
+  _meta__isset() : timestamp(false), success(false), ip(false), port(false), result(false), debug(false) {}
   bool timestamp :1;
   bool success :1;
   bool ip :1;
   bool port :1;
   bool result :1;
-  bool vc :1;
-  bool response :1;
+  bool debug :1;
 } _meta__isset;
 
 class meta : public virtual ::apache::thrift::TBase {
@@ -52,8 +53,7 @@ class meta : public virtual ::apache::thrift::TBase {
   std::string ip;
   int16_t port;
   std::string result;
-  std::vector<node_info>  vc;
-  std::vector<bool>  response;
+  std::vector<std::string>  debug;
 
   _meta__isset __isset;
 
@@ -67,9 +67,7 @@ class meta : public virtual ::apache::thrift::TBase {
 
   void __set_result(const std::string& val);
 
-  void __set_vc(const std::vector<node_info> & val);
-
-  void __set_response(const std::vector<bool> & val);
+  void __set_debug(const std::vector<std::string> & val);
 
   bool operator == (const meta & rhs) const
   {
@@ -83,9 +81,7 @@ class meta : public virtual ::apache::thrift::TBase {
       return false;
     if (!(result == rhs.result))
       return false;
-    if (!(vc == rhs.vc))
-      return false;
-    if (!(response == rhs.response))
+    if (!(debug == rhs.debug))
       return false;
     return true;
   }
@@ -206,6 +202,52 @@ class hint : public virtual ::apache::thrift::TBase {
 void swap(hint &a, hint &b);
 
 std::ostream& operator<<(std::ostream& out, const hint& obj);
+
+typedef struct _SystemException__isset {
+  _SystemException__isset() : message(false) {}
+  bool message :1;
+} _SystemException__isset;
+
+class SystemException : public ::apache::thrift::TException {
+ public:
+
+  SystemException(const SystemException&);
+  SystemException& operator=(const SystemException&);
+  SystemException() : message() {
+  }
+
+  virtual ~SystemException() noexcept;
+  std::string message;
+
+  _SystemException__isset __isset;
+
+  void __set_message(const std::string& val);
+
+  bool operator == (const SystemException & rhs) const
+  {
+    if (__isset.message != rhs.__isset.message)
+      return false;
+    else if (__isset.message && !(message == rhs.message))
+      return false;
+    return true;
+  }
+  bool operator != (const SystemException &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const SystemException & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+  mutable std::string thriftTExceptionMessageHolder_;
+  const char* what() const noexcept;
+};
+
+void swap(SystemException &a, SystemException &b);
+
+std::ostream& operator<<(std::ostream& out, const SystemException& obj);
 
 
 

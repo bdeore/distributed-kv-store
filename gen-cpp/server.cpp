@@ -45,43 +45,105 @@ dkvsHandler::dkvsHandler(std::string &snitch_file) {
   log_replay = false;
 }
 
-void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consistency) {
-  if (send_handoff_requests) {
-    send_handoff_requests = false;
-    process_hints();
-    commit_hints();
+void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consistency, const bool is_coordinator) {
+
+  std::vector<int> forwarding_nodes;
+  std::vector<meta> live_nodes;
+  int failed = 0;
+
+  if (is_coordinator) {
+    find_forwarding_nodes(key, forwarding_nodes);
+
+    std::string v;
+    for (const auto &index:forwarding_nodes) {
+      meta meta;
+      try {
+        make_request(meta, nodes.at(index), key, v, 0, "get");
+        if (meta.success) {
+          _return.__set_ip(meta.ip);
+          _return.__set_port(meta.port);
+          _return.__set_success(meta.success);
+          _return.__set_timestamp(meta.timestamp);
+          _return.__set_result(meta.result);
+          if (consistency == "one") break;
+          else if (consistency == "quorum") live_nodes.push_back(meta);
+        }
+      } catch (...) { failed++; }
+    }
+
+    if (consistency == "quorum" && !(live_nodes.empty())) {
+      auto most_recent = std::max_element(live_nodes.begin(), live_nodes.end(), compare_timestamps_meta);
+      _return.__set_ip(most_recent->ip);
+      _return.__set_port(most_recent->port);
+      _return.__set_success(most_recent->success);
+      _return.__set_timestamp(most_recent->timestamp);
+      _return.__set_result(most_recent->result);
+    }
+
+    if (((failed >= 2) && consistency == "quorum") || ((failed > 2) && consistency == "one")) {
+      std::string message = "Exception: [Insufficient Replicas] -- Get Request Failed";
+      SystemException exception;
+      exception.__set_message(message);
+      throw exception;
+    }
+  } else {
+    if (send_handoff_requests) {
+      send_handoff_requests = false;
+      process_hints();
+      commit_hints();
+    }
+
+    local_get(_return, key);
   }
-  local_get(_return, key);
 }
 
 void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
                       const int32_t timestamp, const bool is_coordinator) {
-  if (send_handoff_requests) {
-    send_handoff_requests = false;
-    process_hints();
-    commit_hints();
-  }
 
   if (is_coordinator) {
     int failed = 0, time_stamp = get_time_in_seconds();
     std::string val_timestamp = value + " " + std::to_string(time_stamp);
     std::vector<int> forwarding_nodes;
 
-    meta meta;
     find_forwarding_nodes(key, forwarding_nodes);
     for (const auto &index:forwarding_nodes) {
+      meta meta;
       try {
         make_request(meta, nodes.at(index), key, val_timestamp, time_stamp, "put");
+        _return.success = true;
+
+        std::string dbg =
+            nodes.at(index).ip + " " + std::to_string(nodes.at(index).port) + " true " + std::to_string(time_stamp);
+
+        _return.debug.push_back(dbg);
       } catch (...) {
         handoff_hint request(nodes.at(index), key, val_timestamp, time_stamp);
         pending_handoff.push_back(request);
         std::cout << "  -> Stored Hint for Node: [" << nodes.at(index).ip << ":" << nodes.at(index).port << " ]"
                   << std::endl;
+        _return.success = false;
+
+        std::string dbg =
+            nodes.at(index).ip + " " + std::to_string(nodes.at(index).port) + " false "
+                + std::to_string(time_stamp);
+
+        _return.debug.push_back(dbg);
         failed++;
       }
+
     }
-    if (failed >= 2) std::cout << "  Put Failed - [ Insufficient Replicas ]" << std::endl;
+    if (((failed >= 2) && consistency == "quorum") || ((failed > 2) && consistency == "one")) {
+      std::string message = "Exception: [Insufficient Replicas] -- Put Request Failed";
+      SystemException exception;
+      exception.__set_message(message);
+      throw exception;
+    }
   } else {
+    if (send_handoff_requests) {
+      send_handoff_requests = false;
+      process_hints();
+      commit_hints();
+    }
     local_put(_return, key, value, timestamp);
   }
   send_handoff_requests = false;
@@ -95,6 +157,7 @@ void dkvsHandler::local_get(meta &_return, int16_t key) {
   if (it == mem_table.end()) {
     _return.__set_result("");
     _return.__set_success(false);
+    _return.__set_timestamp(0);
   } else {
     ss << it->second;
     ss >> value >> time_stamp;
@@ -139,7 +202,7 @@ void dkvsHandler::local_put(meta &_return, int16_t key, const std::string &value
 
 void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const std::string &value,
                                int32_t timestamp, const std::string &request) {
-  if (node.ip == ip && node.port == port) {
+  if ((node.ip == ip && node.port == port) && request == "put") {
     local_put(meta, key, value, timestamp);
   } else {
     auto trans_ep = make_shared<TSocket>(node.ip, node.port);
@@ -150,6 +213,8 @@ void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const
     trans_ep->open();
     if (request == "put") {
       proxy.put(meta, key, value, "a", timestamp, false);
+    } else if (request == "get") {
+      proxy.get(meta, key, "a", false);
     } else if (request == "handoff") {
       node_info current;
       current.port = port;
@@ -172,24 +237,34 @@ void dkvsHandler::receive_hint(const hint &h) {
 }
 
 void dkvsHandler::commit_hints() {
-  std::sort(hints.begin(), hints.end(), compare_timestamps);
+  if (!hints.empty()) {
+    std::sort(hints.begin(), hints.end(), compare_timestamps);
 
-  std::cout << std::endl << "  Sorting Hints\n --------------------------------------------- " << std::endl;
-  int count = 0;
-  for (auto &h:hints) {
-    std::cout << "  [ " << ++count << " ] " << h.key << " -> " << h.value << std::endl;
-  }
+    std::cout << std::endl
+              << " --------------------------------------------- \n  Sorting Hints\n --------------------------------------------- "
+              << std::endl;
+    int count = 0;
+    for (auto &h:hints) {
+      std::cout << "  [ " << ++count << " ] " << h.key << " -> " << h.value << std::endl;
+    }
 
-  std::cout << std::endl << "  Committing Hints\n --------------------------------------------- " << std::endl;
-  for (auto &h: hints) {
-    meta m;
-    local_put(m, h.key, h.value, h.timestamp);
+    std::cout << std::endl
+              << " --------------------------------------------- \n  Committing Hints\n --------------------------------------------- "
+              << std::endl;
+    for (auto &h: hints) {
+      meta m;
+      local_put(m, h.key, h.value, h.timestamp);
+    }
+    std::cout << std::endl;
+    hints.clear();
   }
-  std::cout << std::endl;
-  hints.clear();
 }
 
 bool dkvsHandler::compare_timestamps(const hint &a, const hint &b) {
+  return a.timestamp < b.timestamp;
+}
+
+bool dkvsHandler::compare_timestamps_meta(const meta &a, const meta &b) {
   return a.timestamp < b.timestamp;
 }
 
@@ -284,5 +359,9 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-handoff_hint::handoff_hint(replica_node node, int16_t key, std::string value, int32_t timestamp)
+handoff_hint::handoff_hint(replica_node
+                           node, int16_t
+                           key, std::string
+                           value, int32_t
+                           timestamp)
     : node(std::move(node)), key(key), value(std::move(value)), timestamp(timestamp) {}

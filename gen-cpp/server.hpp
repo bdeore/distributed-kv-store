@@ -64,13 +64,14 @@ class dkvsHandler : virtual public dkvsIf {
   int find_primary_replica(int16_t key);
   void make_request(meta &meta, replica_node node, int16_t key, const std::string &value, int32_t timestamp,
                     const std::string &request);
-  void get(meta &_return, int16_t key, const std::string &consistency) override;
+  void get(meta &_return, int16_t key, const std::string &consistency, const bool is_coordinator) override;
   void put(meta &_return, int16_t key, const std::string &value, const std::string &consistency,
            int32_t timestamp, bool is_coordinator) override;
   void request_handoff(const node_info &n) override;
   void receive_hint(const hint &h) override;
   void commit_hints();
   static bool compare_timestamps(const hint &a, const hint &b);
+  static bool compare_timestamps_meta(const meta &a, const meta &b);
 
  public:
   int port;
