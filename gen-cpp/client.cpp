@@ -1,6 +1,5 @@
 #include "dkvs.h"
 #include "store_types.h"
-#include "store_constants.h"
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -30,6 +29,7 @@ void print_metadata(meta &meta, const std::string &request);
 void print_menu();
 
 bool verbose_output;
+std::vector<replica_node> nodes;
 
 class replica_node {
  public:
@@ -48,7 +48,6 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  std::vector<replica_node> nodes;
   std::string snitch_file = argv[1];
 
   create_node_vector(snitch_file, nodes);
@@ -91,6 +90,11 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
     verbose_output = true;
   }
 
+  if (request == "select" && tokens.size() == 2) {
+    coordinator = nodes.at(std::stoi(tokens[1]) - 1);
+    std::cout << " New coordinator is: [ " << coordinator.ip << " : " << coordinator.port << " ]\n" << std::endl;
+  }
+
   auto trans_ep = make_shared<TSocket>(coordinator.ip, coordinator.port);
   auto trans_buf = make_shared<TBufferedTransport>(trans_ep);
   auto proto = make_shared<TBinaryProtocol>(trans_buf);
@@ -101,7 +105,6 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
 
   if (request == "get" && tokens.size() >= 2) {
     meta meta;
-
     key = std::stoi(tokens[1]);
 
     if (tokens.size() >= 4 && tokens[2] == "-c") {
@@ -114,12 +117,16 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
         std::cout << " Invalid value of Consistency" << std::endl;
     }
 
-    client.get(meta, key, op_consistency, true);
+    try {
+      client.get(meta, key, op_consistency, true);
+    } catch (SystemException &s) {
+      client.get(meta, key, op_consistency, true);
+    }
+
     print_results(meta, key);
     if (verbose_output) print_metadata(meta, "get");
   } else if ((request == "put") && tokens.size() >= 3) {
     meta meta;
-
     key = std::stoi(tokens[1]);
     value = tokens[2];
 
@@ -133,15 +140,26 @@ void make_request(replica_node &coordinator, std::vector<std::string> &tokens) {
         std::cout << "  Invalid value of Consistency" << std::endl;
     }
 
-    client.put(meta, key, value, op_consistency, 0, true);
+    try {
+      client.put(meta, key, value, op_consistency, 0, true);
+    } catch (SystemException &s) {
+      client.put(meta, key, value, op_consistency, 0, true);
+    }
+
     if (verbose_output) print_metadata(meta, "put");
   } else {
-    std::cout << " Invalid [Command|Format] : ";
-    for (const auto &token:tokens) {
-      std::cout << token << " ";
+    if (tokens[0] != "select") {
+      if (tokens[0] != "help") {
+        {
+          std::cout << " Invalid [Command|Format] : ";
+          for (const auto &token:tokens) {
+            std::cout << token << " ";
+          }
+          std::cout << std::endl;
+        }
+      }
+      print_menu();
     }
-    std::cout << std::endl;
-    print_menu();
   }
   verbose_output = false;
   trans_ep->close();
@@ -236,6 +254,7 @@ void print_menu() {
             << " ---------------------------------------------------------\n"
             << "   put <key> <value> [-c <one|o|O> | <quorum|q|Q> ] [-v]\n"
             << "   get <key> [-c <one|o|O> | <quorum|q|Q> ] [-v]\n"
+            << "   select <coordinator node>\n"
             << " ---------------------------------------------------------\n" << std::endl;
 
 }

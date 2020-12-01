@@ -1,6 +1,7 @@
 #include "server.hpp"
 
 dkvsHandler::dkvsHandler(std::string &snitch_file) {
+  bool print = true;
   std::string timestamp, key;
   std::string node_ip, value;
   int node_port, node_range_begin, node_range_end;
@@ -32,8 +33,11 @@ dkvsHandler::dkvsHandler(std::string &snitch_file) {
   std::string f = "logs/" + ip;
   log.open(f);
   log_replay = true;
-  std::cout << std::endl << "  creating mem table from log... " << std::endl << std::endl;
   while (getline(log, line)) {
+    if (print) {
+      std::cout << std::endl << "  creating mem table from log... " << std::endl << std::endl;
+      print = false;
+    }
     send_handoff_requests = true;
     std::stringstream temp;
     temp.str(line);
@@ -47,16 +51,23 @@ dkvsHandler::dkvsHandler(std::string &snitch_file) {
 
 void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consistency, const bool is_coordinator) {
 
+  if (send_handoff_requests) {
+    send_handoff_requests = false;
+    process_hints();
+    commit_hints();
+  }
+
   std::vector<int> forwarding_nodes;
   std::vector<meta> live_nodes;
-  int failed = 0;
 
   if (is_coordinator) {
+    int failed = 0;
     find_forwarding_nodes(key, forwarding_nodes);
 
     std::string v;
     for (const auto &index:forwarding_nodes) {
       meta meta;
+      meta.success = false;
       try {
         make_request(meta, nodes.at(index), key, v, 0, "get");
         if (meta.success) {
@@ -87,18 +98,18 @@ void dkvsHandler::get(meta &_return, const int16_t key, const std::string &consi
       throw exception;
     }
   } else {
-    if (send_handoff_requests) {
-      send_handoff_requests = false;
-      process_hints();
-      commit_hints();
-    }
-
     local_get(_return, key);
   }
 }
 
 void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value, const std::string &consistency,
                       const int32_t timestamp, const bool is_coordinator) {
+
+  if (send_handoff_requests) {
+    send_handoff_requests = false;
+    process_hints();
+    commit_hints();
+  }
 
   if (is_coordinator) {
     int failed = 0, time_stamp = get_time_in_seconds();
@@ -108,45 +119,40 @@ void dkvsHandler::put(meta &_return, const int16_t key, const std::string &value
     find_forwarding_nodes(key, forwarding_nodes);
     for (const auto &index:forwarding_nodes) {
       meta meta;
+      meta.success = false;
       try {
         make_request(meta, nodes.at(index), key, val_timestamp, time_stamp, "put");
-        _return.success = true;
-
-        std::string dbg =
-            nodes.at(index).ip + " " + std::to_string(nodes.at(index).port) + " true " + std::to_string(time_stamp);
-
-        _return.debug.push_back(dbg);
+        if (meta.success) {
+          std::string dbg =
+              nodes.at(index).ip + " " + std::to_string(nodes.at(index).port) + " true " + std::to_string(time_stamp);
+          _return.debug.push_back(dbg);
+          _return.success = true;
+        }
       } catch (...) {
         handoff_hint request(nodes.at(index), key, val_timestamp, time_stamp);
         pending_handoff.push_back(request);
-        std::cout << "  -> Stored Hint for Node: [" << nodes.at(index).ip << ":" << nodes.at(index).port << " ]"
+        std::cout << "  -> Stored Hint for Node: [" << nodes.at(index).ip << ":" << nodes.at(index).port << "]"
                   << std::endl;
-        _return.success = false;
 
         std::string dbg =
-            nodes.at(index).ip + " " + std::to_string(nodes.at(index).port) + " false "
-                + std::to_string(time_stamp);
+            nodes.at(index).ip + " " + std::to_string(nodes.at(index).port) + " false " + std::to_string(time_stamp);
 
         _return.debug.push_back(dbg);
         failed++;
       }
-
     }
+
     if (((failed >= 2) && consistency == "quorum") || ((failed > 2) && consistency == "one")) {
+      if (consistency == "one") pending_handoff.clear();
+      _return.success = false;
       std::string message = "Exception: [Insufficient Replicas] -- Put Request Failed";
       SystemException exception;
       exception.__set_message(message);
       throw exception;
     }
   } else {
-    if (send_handoff_requests) {
-      send_handoff_requests = false;
-      process_hints();
-      commit_hints();
-    }
     local_put(_return, key, value, timestamp);
   }
-  send_handoff_requests = false;
 }
 
 void dkvsHandler::local_get(meta &_return, int16_t key) {
@@ -162,7 +168,6 @@ void dkvsHandler::local_get(meta &_return, int16_t key) {
     ss << it->second;
     ss >> value >> time_stamp;
 
-//    std::cout << "value: " << value << " timestamp: " << time_stamp << std::endl;
     _return.__set_result(value);
     _return.__set_success(true);
     _return.__set_timestamp(std::stoi(time_stamp));
@@ -202,8 +207,10 @@ void dkvsHandler::local_put(meta &_return, int16_t key, const std::string &value
 
 void dkvsHandler::make_request(meta &meta, replica_node node, int16_t key, const std::string &value,
                                int32_t timestamp, const std::string &request) {
-  if ((node.ip == ip && node.port == port) && request == "put") {
+  if ((node.ip == ip && node.port == port) && request == "put" && !value.empty()) {
     local_put(meta, key, value, timestamp);
+  } else if ((node.ip == ip && node.port == port) && request == "get") {
+    local_get(meta, key);
   } else {
     auto trans_ep = make_shared<TSocket>(node.ip, node.port);
     trans_ep->setRecvTimeout(15000);
@@ -279,7 +286,7 @@ void dkvsHandler::process_hints() {
 }
 
 void dkvsHandler::request_handoff(const node_info &n) {
-  std::cout << std::endl << "  Handoff Request from: [ " << n.ip << ":" << n.port << " ]";
+  std::cout << "  Handoff Request from: [ " << n.ip << ":" << n.port << " ]";
   std::vector<int> indexes;
   if (!pending_handoff.empty()) {
     int num = -1;
@@ -301,7 +308,7 @@ void dkvsHandler::request_handoff(const node_info &n) {
     }
   }
 
-  std::cout << " ...completed!\n" << std::endl;
+  std::cout << " ...completed!" << std::endl;
 }
 
 void dkvsHandler::find_forwarding_nodes(int16_t key, std::vector<int> &forwarding_nodes) {
@@ -359,9 +366,5 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-handoff_hint::handoff_hint(replica_node
-                           node, int16_t
-                           key, std::string
-                           value, int32_t
-                           timestamp)
+handoff_hint::handoff_hint(replica_node node, int16_t key, std::string value, int32_t timestamp)
     : node(std::move(node)), key(key), value(std::move(value)), timestamp(timestamp) {}

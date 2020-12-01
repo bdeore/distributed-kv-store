@@ -1,19 +1,23 @@
 # CS557 -- Assignment 3
 
 
-### to run the server: 
+### to build & run the server: 
 
 ``
 make start
 ``
 
 
-### to restart server ( to rebuild ):
+### to rebuild server: clears all log files
 
 ``
 make restart
 ``
 
+### to run individual server:
 
+``
+./server <snitch_file>
+``
 
 
