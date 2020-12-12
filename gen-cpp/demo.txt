@@ -1,0 +1,39 @@
+k1: 100 replicas: s2, s3, s4
+k2: 150 replicas: s3, s4, s1
+k3: 200 replicas: s4, s1, s2
+
+client c1:
+select 1
+put 100 aaaa -c one -v
+
+client c2:
+select 2
+get 100 -c one -v
+put 100 bbbb -c one -v
+
+stop all replicas, restart s2
+
+client c3:
+select 2
+get 100 -c one -v
+
+put 150 eeee -c one -v
+
+get 100 -c q -v
+
+restart s3
+
+get 100 -c q -v
+
+restart s1 and s4, stop s2
+client c4:
+select 1
+put 100 cccc -c q -v
+
+restart s2
+client c5:
+put 150 dddd -c one -v
+
+stop s3, s4
+client c6:
+get 100 -c one -v
