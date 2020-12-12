@@ -1,4 +1,4 @@
-## Replicated Key-Value with Configurable Consistency
+## Replicated Key-Value Store with Configurable Consistency
 
 This project is inspired by cassandra distributed key-value store. Project features include configurable consistency
 level for writes and reads (quorum or one), hinted-handoff mechanism, write-ahead logs for failure recovery and
